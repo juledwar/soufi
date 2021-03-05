@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -e
+
+MY_NAME=$(basename ${BASH_SOURCE[0]})
+TOOLS_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd -P)"
+. ${TOOLS_PATH}/functions
+
+# Prepare our workspace
+prep_workspace
+
+# Run our command
+# We want our commands to be named with a - but our functions with a _
+# so do a quick substitute and run the function.
+CMD=${MY_NAME//-/_}
+${CMD} $@

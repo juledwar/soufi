@@ -1,0 +1,310 @@
+export ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd -P)"
+export PYTHON=$(which python3.8)
+export VENV=${ROOT}/venv-sofi
+
+# Get our build vars
+if [ -r ${ROOT}/build.vars ]; then
+    . ${ROOT}/build.vars
+fi
+
+# See if its Linux
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    export OS_NAME=${ID}
+    export OS_VERSION=${VERSION_ID}
+else
+    UNAME=$(uname)
+    if [ "${UNAME}" = 'Darwin' ]; then
+        export OS_NAME="${UNAME}"
+        # OS X versions match the major as reported by uname
+        #   10.12.x -> 16.x.y
+        #   10.13.x -> 17.x.y
+        #   10.14.x -> 18.x.y
+        export OS_VERSION=$(uname -r | awk -F. '{print $1}')
+    else
+        echo "UNKNOWN OS" 1>&2
+        exit 1
+    fi
+fi
+
+function prep_workspace() {
+    # Run any OS specific work-space prep commands
+    if [ -f ${ROOT}/.prep ]; then
+        return 0
+    fi
+    local FILES
+    local DIR="${ROOT}/build-conf/${OS_NAME}"
+    if [ -d ${DIR} ]; then
+        FILES=$(LC_ALL=C; echo ${DIR%/}/*)
+        for FILE in ${FILES}; do
+            [ -d ${FILE} ] && continue
+            [ ! -x ${FILE} ] && continue
+            ${FILE}
+        done
+    fi
+    touch ${ROOT}/.prep
+}
+
+function create_venv() {
+    # Check to see if we need to create/recreate the venv.
+    if [ -d ${VENV} ]; then
+        if [ ${ROOT}/tools/functions -nt ${VENV} ] || \
+           [ ${ROOT}/requirements.txt -nt ${VENV} ] || \
+           [ ${ROOT}/test-requirements.txt -nt ${VENV} ]; then
+            echo "Recreating ${VENV}"
+            rm -rf ${VENV}
+        else
+            # No need to build/rebuild at this time.
+            return 0
+        fi
+    fi
+
+    if [ "${OS_NAME}" = 'ubuntu' ]; then
+        sudo apt-get install -y python3.8-venv python3.8-dev libldap2-dev libsasl2-dev
+    fi
+    # Tell virtualenv to build a VENV with the correct version
+    # of python provided by functions.
+    ${PYTHON} -m venv ${VENV}
+
+    # NOTE(juledwar): Paths longer than 128 characters in a shebang will
+    # silently fail. We have a potentially deep directory structure when this
+    # runs in Jenkins, so invoke pip directly from the Python interpreter in
+    # the virtualenv.
+    ${VENV}/bin/python ${VENV}/bin/pip install --upgrade pip
+    ${VENV}/bin/python ${VENV}/bin/pip install tox virtualenv
+}
+
+function get_git_hash() {
+    git rev-parse --short --verify HEAD
+}
+
+function get_package_name() {
+    python setup.py --name
+}
+
+function get_pbr_auto_version() {
+    python setup.py --version
+}
+
+function get_package_version() {
+    local MODE=${1:-merge}
+    # Get PBR Auto Version
+    local PAU=$(get_pbr_auto_version)
+    local VERSION="${PAU}"
+    if [ "${MODE}" = 'premerge' ]; then
+        local GIT_HASH=$(get_git_hash)
+        VERSION="${PAU}+g${GIT_HASH}"
+    fi
+    echo ${VERSION}
+}
+
+function clean_venv() {
+    rm -rf ${ROOT}/venv-sofi/
+}
+
+function clean_python_dist() {
+    rm -rf ${ROOT}/dist/
+}
+
+function clean_python_packaging_files() {
+    rm -rf ${ROOT}/{AUTHORS,ChangeLog,sofi.egg-info/,.eggs}
+}
+
+function clean_python_all() {
+    clean_python_dist
+    clean_python_packaging_files
+}
+
+function clean_tests() {
+    rm -rf ${ROOT}/{.tox/,.stestr/,.coverage,cover/}
+}
+
+function clean_all() {
+    clean_venv
+    clean_python_all
+    clean_tests
+}
+
+function is_venv() {
+    ! python -c 'import sys; sys.exit(hasattr(sys, "real_prefix") or
+                                      (hasattr(sys, "base_prefix") and
+                                      sys.base_prefix != sys.prefix))' \
+                                      && RC=$? || RC=$?
+    return ${RC}
+}
+
+function run_tox() {
+    local TOX_ARGS=$@
+
+    # Ensure our venv exists
+    create_venv
+
+    echo "Activating"
+    # tox is a bit weird. If you run tox directly by calling it from the
+    # VENV (ex. ${VENV}/bin/tox) then tox runs with the python inside the
+    # VENV but when it builds its own VENVs then it finds the python in its
+    # path which is *NOT* the one in the outer VENV. You have to first
+    # activate the VENV so that tox will only find that version of python.
+    . ${VENV}/bin/activate
+    echo "Running tox ${TOX_ARGS}"
+    tox ${TOX_ARGS} || exit 1
+
+}
+
+function run_tests() {
+    run_tox $@
+}
+
+function run_coverage() {
+    run_tox -e cover
+}
+
+function _tox_build_python_package() {
+    function usage() {
+        cat << EOF 1>&2
+Usage: $0 [<options>]
+    -m <mode>
+        premerge: Build for premerge
+        merge: Merge builds (default)
+        tag: Tag builds
+    -h
+        Print this help and exit.
+EOF
+    }
+
+    local MODE='merge'
+    local OPTIND opt
+
+    while getopts ":hm:" opt; do
+        case $opt in
+            h)
+                usage
+                exit 0
+                ;;
+            m)
+                MODE=${OPTARG}
+                ;;
+            \?)
+                echo "Invalid option: -${OPTARG}" >&2
+                usage
+                exit 1
+                ;;
+        esac
+    done
+
+    # Old python build artificats can sometimes mess us up, so clean them up
+    # before we build our package.
+    clean_python_packaging_files
+
+    # Figure out our version
+    local PBR_VERSION=$(get_pbr_auto_version)
+    local VERSION=$(get_package_version "${MODE}")
+    if [ "${PBR_VERSION}" != "${VERSION}" ]; then
+        PBR_VERSION="${VERSION}"
+    fi
+
+    # Build the package
+    echo "Building python package"
+    PBR_VERSION=${PBR_VERSION} python setup.py build_sphinx
+    PBR_VERSION=${PBR_VERSION} python setup.py sdist
+
+    # Make what we just built available to other functions.
+    local PKG_NAME=$(get_package_name)
+    printf "PKG_NAME=${PKG_NAME}\nPKG_VERSION=${PBR_VERSION}" \
+        > ${ROOT}/dist/build.vars
+}
+
+function build_python_package() {
+    # Note(cfb): We want to support a single entry point however we need the
+    #            build to run under tox which is inside a virtualenv, which is
+    #            in turn run inside a venv. So if we aren't running in a
+    #            venv/virtualenv, ask tox to re-run us.
+    #            Yes, I'm pure evil!
+    is_venv && RC=$? || RC=$?
+    if [ ${RC} -ne 0 ]; then
+        run_tox -e build-python-package -- $@
+    else
+        _tox_build_python_package $@ 
+    fi
+}
+
+function get_package() {
+    . ${ROOT}/dist/build.vars
+    echo "${PKG_NAME}:${PKG_VERSION}"
+}
+
+function build_container() {
+    # Set our defaults
+    local MODE='merge'
+    local REPO='registry-write.ci.ciscolabs.com'
+    local PUSH='false'
+    local OPTIND opt
+
+    function usage() {
+        cat << EOF 1>&2
+Usage: $0 [<options>]
+    -m <mode>
+        premerge: Build for premerge
+        merge: Merge builds (default)
+        tag: Tag builds
+    -r <repo>
+        Docker repo to use
+        Default: ${REPO}
+    -p
+        Push container after build
+    -h
+        Print this help and exit.
+EOF
+    }
+
+    while getopts ":hr:m:p" opt; do
+        case $opt in
+            h)
+                usage
+                exit 0
+                ;;
+            r)
+                REPO=${OPTARG}
+                ;;
+            m)
+                MODE=${OPTARG}
+                ;;
+            p)
+                PUSH='true'
+                ;;
+            \?)
+                echo "Invalid option: -${OPTARG}" >&2
+                usage
+                exit 1
+                ;;
+        esac
+    done
+
+    # Build the package
+    # NOTE(cfb): Technically this has already been done when running in the
+    #            jenkins pipeline. However since we depend on the built package
+    #            to build the container and given it takes about 1s to build the
+    #            package just built it each time. We could try and see if it
+    #            already exists but there is a lot of things that could change
+    #            that would require building the package so just rebuild it.
+    build_python_package -m ${MODE}
+
+    . ${ROOT}/dist/build.vars
+
+    # Replace + in $PKG_VERSION with . for compatibility with docker
+    local DOCKER_PKG_VERSION=$(echo $PKG_VERSION | tr + .)
+
+    docker build --no-cache=true \
+                 --build-arg PACKAGE="${PKG_NAME}-${PKG_VERSION}.tar.gz" \
+                 -f Dockerfile \
+                 -t ${REPO}/${PKG_NAME}:${DOCKER_PKG_VERSION} \
+                 .
+
+    if [ "${PUSH}" = 'true' ]; then
+        docker push "${REPO}/${PKG_NAME}:${DOCKER_PKG_VERSION}"
+        if [ "${MODE}" = 'merge' ]; then
+            docker tag "${REPO}/${PKG_NAME}:${DOCKER_PKG_VERSION}" "${REPO}/${PKG_NAME}:latest-dev"
+            docker push "${REPO}/${PKG_NAME}:latest-dev"
+        fi
+    fi
+}
