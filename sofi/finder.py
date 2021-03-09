@@ -28,11 +28,15 @@ class DiscoveredSource(metaclass=abc.ABCMeta):
     """Base class for all objects implementing a discovered source."""
 
     def __init__(self, urls: Iterable[str]):
-        self.urls = urls
+        self._urls = urls
+
+    @property
+    def urls(self):
+        return self._urls
 
     @abc.abstractmethod
     def make_archive(self) -> BinaryIO:
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
 
 class SourceFinder(metaclass=abc.ABCMeta):
@@ -41,7 +45,7 @@ class SourceFinder(metaclass=abc.ABCMeta):
     @property
     @abc.abstractmethod
     def distro(self) -> Union[Distro, str]:
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def __init__(self, name: str, version: str, s_type: SourceType):
         self.name = name
@@ -50,7 +54,7 @@ class SourceFinder(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def find(self) -> DiscoveredSource:
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
 
 class FinderFactory:
