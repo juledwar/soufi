@@ -58,3 +58,6 @@ class UbuntuDiscoveredSource(finder.DiscoveredSource):
     def make_archive(self):
         # TODO
         pass
+
+    def __repr__(self):
+        return "\n".join(self.urls)
