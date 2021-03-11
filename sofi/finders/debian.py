@@ -1,13 +1,9 @@
-import functools
-import pathlib
-
 import requests
 
 from sofi import exceptions, finder
 
-
 SNAPSHOT_API = "https://snapshot.debian.org/"
-API_TIMEOUT = 300  # seconds
+API_TIMEOUT = 30  # seconds
 
 
 class DebianFinder(finder.SourceFinder):
@@ -33,7 +29,7 @@ class DebianFinder(finder.SourceFinder):
         data = response.json()
         try:
             return [r['hash'] for r in data['result']]
-        except IndexError:
+        except (IndexError, TypeError):
             raise exceptions.SourceNotFound
 
     def get_urls(self, hashes):

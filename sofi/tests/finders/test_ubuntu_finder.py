@@ -74,8 +74,9 @@ class TestUbuntuFinder(base.TestCase):
         uf = self.make_finder()
         result = uf.get_source_from_build(build)
         getPublishedSources.assert_called_once_with(
-            exact_match=True, source_name=build.source_package_name,
-            version=build.source_package_version
+            exact_match=True,
+            source_name=build.source_package_name,
+            version=build.source_package_version,
         )
         self.assertEqual(source, result)
 
@@ -84,10 +85,25 @@ class TestUbuntuFinder(base.TestCase):
         self.patch(ubuntu.UbuntuFinder, 'get_build')
         source = mock.MagicMock()
         sourceFileUrls = mock.MagicMock()
-        sourceFileUrls.return_value = [self.factory.make_url(), self.factory.make_url()]
+        sourceFileUrls.return_value = [
+            self.factory.make_url(),
+            self.factory.make_url(),
+        ]
         source.sourceFileUrls = sourceFileUrls
-        self.patch(ubuntu.UbuntuFinder, 'get_source_from_build').return_value = source
+        self.patch(
+            ubuntu.UbuntuFinder, 'get_source_from_build'
+        ).return_value = source
         uf = self.make_finder()
         disc_source = uf.find()
         self.assertIsInstance(disc_source, ubuntu.UbuntuDiscoveredSource)
-        self.assertThat(disc_source.urls, SameMembers(sourceFileUrls.return_value))
+        self.assertThat(
+            disc_source.urls, SameMembers(sourceFileUrls.return_value)
+        )
+
+
+class TestUbuntuDiscoveredSource(base.TestCase):
+    def test_repr(self):
+        urls = [self.factory.make_url() for _ in range(4)]
+        uds = ubuntu.UbuntuDiscoveredSource(urls)
+        expected = "\n".join(urls)
+        self.assertEqual(expected, repr(uds))

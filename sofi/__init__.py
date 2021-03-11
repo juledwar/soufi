@@ -1,8 +1,7 @@
-import sys
-
 import click
 
 from sofi import exceptions, finder
+
 
 def urls_ubuntu(name, version):
     click.echo("Logging in to Launchpad")
