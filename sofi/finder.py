@@ -1,4 +1,5 @@
 import abc
+import contextlib
 import enum
 import importlib
 import pkgutil
@@ -35,7 +36,7 @@ class DiscoveredSource(metaclass=abc.ABCMeta):
         return self._urls
 
     @abc.abstractmethod
-    def make_archive(self) -> BinaryIO:
+    def make_archive(self) -> contextlib.AbstractContextManager[BinaryIO]:
         raise NotImplementedError  # pragma: no cover
 
 

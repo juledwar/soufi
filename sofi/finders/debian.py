@@ -1,3 +1,10 @@
+import contextlib
+import io
+import shutil
+import tarfile
+import tempfile
+from pathlib import Path
+
 import requests
 
 from sofi import exceptions, finder
@@ -58,9 +65,32 @@ class DebianDiscoveredSource(finder.DiscoveredSource):
         super().__init__(_urls)
         self.names = names
 
+    @contextlib.contextmanager
     def make_archive(self):
-        # TODO
-        pass
+        # The temp dir is cleaned up once the context manager exits.
+        with tempfile.TemporaryDirectory() as target_dir:
+            tarfile_fd, tarfile_name = tempfile.mkstemp(dir=target_dir)
+            tar = tarfile.open(name=tarfile_name, mode='w:xz')
+            self._populate_archive(target_dir, tar)
+            with open(tarfile_name, 'rb') as fd:
+                yield fd
+
+    def _populate_archive(self, temp_dir, tar):
+        for name, url in zip(self.names, self.urls):
+            arcfile_name = self._download_file(temp_dir, name, url)
+            tar.add(arcfile_name, arcname=name, filter=self._reset_tarinfo)
+
+    def _download_file(self, target_dir, target_name, url):
+        tmp_file_name = Path(target_dir) / target_name
+        with requests.get(url, stream=True) as response:
+            with open(tmp_file_name, 'wb') as f:
+                shutil.copyfileobj(response.raw, f)
+        return tmp_file_name
+
+    def _reset_tarinfo(self, tarinfo):
+        tarinfo.uid = tarinfo.gid = 0
+        tarinfo.uname = tarinfo.gname = "root"
+        return tarinfo
 
     def __repr__(self):
         output = []
