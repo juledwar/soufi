@@ -60,7 +60,7 @@ function create_venv() {
     fi
 
     if [ "${OS_NAME}" = 'ubuntu' ]; then
-        sudo apt-get install -y python3.8-venv python3.8-dev libldap2-dev libsasl2-dev
+        sudo apt-get install -y python3.8-venv python3.8-dev
     fi
     # Tell virtualenv to build a VENV with the correct version
     # of python provided by functions.
