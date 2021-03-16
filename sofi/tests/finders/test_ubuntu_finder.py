@@ -1,6 +1,11 @@
+import pathlib
+import tarfile
+import tempfile
 from unittest import mock
 
+import fixtures
 import testtools
+from testtools.matchers import Equals
 from testtools.matchers._basic import SameMembers
 
 from sofi import exceptions
@@ -107,3 +112,31 @@ class TestUbuntuDiscoveredSource(base.TestCase):
         uds = ubuntu.UbuntuDiscoveredSource(urls)
         expected = "\n".join(urls)
         self.assertEqual(expected, repr(uds))
+
+    def test_populate_archive(self):
+        tmpdir = self.useFixture(fixtures.TempDir()).path
+
+        # Make a file to put in the tar:
+        content = self.factory.make_bytes('content')
+        _, fake_file = tempfile.mkstemp(dir=tmpdir)
+        with open(fake_file, 'wb') as fake_file_fd:
+            fake_file_fd.write(content)
+
+        # Patch out download_file to return the fake file:
+        url = self.factory.make_url()
+        uds = ubuntu.UbuntuDiscoveredSource([url])
+        download_file = self.patch(uds, 'download_file')
+        download_file.return_value = pathlib.Path(fake_file)
+
+        # Make the tar file and populate it:
+        _, tar_file_name = tempfile.mkstemp(dir=tmpdir)
+        with tarfile.open(name=tar_file_name, mode='w') as tar:
+            uds.populate_archive(tmpdir, tar)
+
+        # Test that the tar contains the file and the content.
+        expected_file_name = url.rsplit('/', 1)[-1]
+        with tarfile.open(name=tar_file_name, mode='r') as tar:
+            self.expectThat(tar.getnames(), SameMembers([expected_file_name]))
+            self.expectThat(
+                tar.extractfile(expected_file_name).read(), Equals(content)
+            )

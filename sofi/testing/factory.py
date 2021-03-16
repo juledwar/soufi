@@ -49,6 +49,9 @@ class Factory:
             charset = self.random_letters
         return prefix + "".join(islice(charset, size))
 
+    def make_bytes(self, prefix="", size=10, charset=None):
+        return self.make_string(prefix, size, charset).encode('utf-8')
+
     def make_digest(self):
         string = self.make_string().encode("ascii")
         return "sha256:" + hashlib.sha256(string).hexdigest()

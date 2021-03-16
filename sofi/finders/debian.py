@@ -51,7 +51,12 @@ class DebianFinder(finder.SourceFinder):
 
 
 class DebianDiscoveredSource(finder.DiscoveredSource):
-    """A discovered Debian source package."""
+    """A discovered Debian source package.
+
+    This class differs from the Ubuntu one in that it is required
+    to separately store the final names of the files we're downloading,
+    as they cannot be ascertained from the URL alone.
+    """
 
     def __init__(self, urls):
         names, _urls = zip(*urls)

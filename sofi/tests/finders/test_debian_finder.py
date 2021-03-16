@@ -1,7 +1,13 @@
+import pathlib
+import tarfile
+import tempfile
 from unittest import mock
 
+import fixtures
 import requests
 import testtools
+from testtools.matchers import Equals
+from testtools.matchers._basic import SameMembers
 
 from sofi import exceptions
 from sofi.finder import SourceType
@@ -100,9 +106,39 @@ class TestDebianFinder(base.TestCase):
 
 
 class TestDebianDiscoveredSource(base.TestCase):
-    def test_repr(self):
-        urls = [self.factory.make_url() for _ in range(4)]
+    def make_debian_discovered_source(self, url_count=3):
+        urls = [self.factory.make_url() for _ in range(url_count)]
         url_pairs = [(self.factory.make_string(), url) for url in urls]
-        dds = debian.DebianDiscoveredSource(url_pairs)
+        return url_pairs, debian.DebianDiscoveredSource(url_pairs)
+
+    def test_repr(self):
+        url_pairs, dds = self.make_debian_discovered_source()
         expected = "\n".join([f"{name}: {url}" for name, url in url_pairs])
         self.assertEqual(expected, repr(dds))
+
+    def test_populate_archive(self):
+        tmpdir = self.useFixture(fixtures.TempDir()).path
+
+        # Make a file to put in the tar:
+        content = self.factory.make_bytes('content')
+        _, fake_file = tempfile.mkstemp(dir=tmpdir)
+        with open(fake_file, 'wb') as fake_file_fd:
+            fake_file_fd.write(content)
+
+        # Patch out download_file to return the fake file:
+        url_pairs, dds = self.make_debian_discovered_source(url_count=1)
+        download_file = self.patch(dds, 'download_file')
+        download_file.return_value = pathlib.Path(fake_file)
+
+        # Make the tar file and populate it:
+        _, tar_file_name = tempfile.mkstemp(dir=tmpdir)
+        with tarfile.open(name=tar_file_name, mode='w') as tar:
+            dds.populate_archive(tmpdir, tar)
+
+        # Test that the tar contains the file and the content.
+        expected_file_name, _ = url_pairs[0]
+        with tarfile.open(name=tar_file_name, mode='r') as tar:
+            self.expectThat(tar.getnames(), SameMembers([expected_file_name]))
+            self.expectThat(
+                tar.extractfile(expected_file_name).read(), Equals(content)
+            )

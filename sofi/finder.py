@@ -54,15 +54,13 @@ class DiscoveredSource(metaclass=abc.ABCMeta):
         # The temp dir is cleaned up once the context manager exits.
         with tempfile.TemporaryDirectory() as target_dir:
             tarfile_fd, tarfile_name = tempfile.mkstemp(dir=target_dir)
-            tar = tarfile.open(name=tarfile_name, mode='w:xz')
-            self.populate_archive(target_dir, tar)
+            with tarfile.open(name=tarfile_name, mode='w:xz') as tar:
+                self.populate_archive(target_dir, tar)
             with open(tarfile_name, 'rb') as fd:
                 yield fd
 
     @abc.abstractmethod
-    def populate_archive(
-        self, temp_dir: str, tar: tarfile.TarFile
-    ) -> pathlib.Path:
+    def populate_archive(self, temp_dir: str, tar: tarfile.TarFile):
         """Populate a TarFile object with downloaded files.
 
         Derived classes must implement this method.
