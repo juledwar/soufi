@@ -55,9 +55,12 @@ class UbuntuFinder(finder.SourceFinder):
 class UbuntuDiscoveredSource(finder.DiscoveredSource):
     """A discovered Ubuntu source package."""
 
-    def make_archive(self):
-        # TODO
-        pass
+    def populate_archive(self, temp_dir, tar):
+        # The file name is the last segment of the URL path.
+        names = [url.rsplit('/', 1)[-1] for url in self.urls]
+        for name, url in zip(names, self.urls):
+            arcfile_name = self.download_file(temp_dir, name, url)
+            tar.add(arcfile_name, arcname=name, filter=self.reset_tarinfo)
 
     def __repr__(self):
         return "\n".join(self.urls)

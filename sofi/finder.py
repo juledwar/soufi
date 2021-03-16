@@ -2,9 +2,15 @@ import abc
 import contextlib
 import enum
 import importlib
+import pathlib
 import pkgutil
+import shutil
+import tarfile
+import tempfile
 from inspect import isclass
-from typing import BinaryIO, Iterable, Union
+from typing import BinaryIO, ContextManager, Iterable, Union
+
+import requests
 
 
 @enum.unique
@@ -35,9 +41,67 @@ class DiscoveredSource(metaclass=abc.ABCMeta):
     def urls(self):
         return self._urls
 
+    @contextlib.contextmanager
+    def make_archive(self) -> ContextManager[BinaryIO]:
+        """Make a context manager to a tar archive of all the source URLs.
+
+        Yields a binary file object to the tar archive.
+
+        Any downloaded files are removed after the IO stream is closed by
+        exiting this context manager, so it is the caller's responsibility to
+        save the stream as necessary.
+        """
+        # The temp dir is cleaned up once the context manager exits.
+        with tempfile.TemporaryDirectory() as target_dir:
+            tarfile_fd, tarfile_name = tempfile.mkstemp(dir=target_dir)
+            tar = tarfile.open(name=tarfile_name, mode='w:xz')
+            self.populate_archive(target_dir, tar)
+            with open(tarfile_name, 'rb') as fd:
+                yield fd
+
     @abc.abstractmethod
-    def make_archive(self) -> contextlib.AbstractContextManager[BinaryIO]:
+    def populate_archive(
+        self, temp_dir: str, tar: tarfile.TarFile
+    ) -> pathlib.Path:
+        """Populate a TarFile object with downloaded files.
+
+        Derived classes must implement this method.
+
+        :param temp_dir: Name of pre-made temp directory into which the URL
+            files can be downloaded.
+        :param tar: TarFile object into which the files must be added.
+        """
         raise NotImplementedError  # pragma: no cover
+
+    def download_file(
+        self, target_dir: str, target_name: str, url: str
+    ) -> pathlib.Path:
+        """Download a file from a URL and place it in a directory.
+
+        Stream-downloads file from <url> and places it as a file named
+        <target_name> inside <target_dir>.
+
+        May be called by derived classes to help retrieve files.
+
+        Returns the Path object to the new file.
+
+        NOTE: No decoding is performed on the file, it is saved as raw.
+        """
+        tmp_file_name = pathlib.Path(target_dir) / target_name
+        with requests.get(url, stream=True) as response:
+            with open(tmp_file_name, 'wb') as f:
+                shutil.copyfileobj(response.raw, f)
+        return tmp_file_name
+
+    def reset_tarinfo(self, tarinfo: tarfile.TarInfo) -> tarfile.TarInfo:
+        """Filter to reset TarInfo fields to remove user details.
+
+        Use as the `filter` parameter to TarFile.add() when populating the
+        tar archive.
+        """
+        tarinfo.uid = tarinfo.gid = 0
+        tarinfo.uname = tarinfo.gname = "root"
+        return tarinfo
 
 
 class SourceFinder(metaclass=abc.ABCMeta):
