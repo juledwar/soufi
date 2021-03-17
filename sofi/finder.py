@@ -4,7 +4,6 @@ import enum
 import importlib
 import pathlib
 import pkgutil
-import shutil
 import tarfile
 import tempfile
 from inspect import isclass
@@ -88,7 +87,11 @@ class DiscoveredSource(metaclass=abc.ABCMeta):
         tmp_file_name = pathlib.Path(target_dir) / target_name
         with requests.get(url, stream=True) as response:
             with open(tmp_file_name, 'wb') as f:
-                shutil.copyfileobj(response.raw, f)
+                # Setting chunk_size to None reads whatever size the
+                # chunk is as data chunks arrive. This avoids reading
+                # the whole file into memory.
+                for chunk in response.iter_content(chunk_size=None):
+                    f.write(chunk)
         return tmp_file_name
 
     def reset_tarinfo(self, tarinfo: tarfile.TarInfo) -> tarfile.TarInfo:

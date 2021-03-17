@@ -1,3 +1,4 @@
+"""A simple testing CLI to find and download source."""
 import shutil
 
 import click
@@ -36,6 +37,18 @@ def urls_debian(name, version):
     default=None,
 )
 def main(distro, name, version, output):
+    """Find and optionally download source files.
+
+    Given a binary name and version, will find and print the URL(s) to the
+    source file(s).
+
+    If the --output option is present, the URLs are all downloaded and
+    combined into a LZMA-compressed tar file and written to the file
+    name specifed.
+
+    The only sources currently supported are 'debian' and 'ubuntu', one
+    of which must be specified as the DISTRO argument.
+    """
     if distro == 'debian':
         func = urls_debian
     elif distro == 'ubuntu':
@@ -52,6 +65,7 @@ def main(distro, name, version, output):
     if output is not None:
         with disc_source.make_archive() as archive_fd:
             with open(output, 'wb') as out_fd:
+                # copyfileobj copies in chunks, so as not to exhaust memory.
                 shutil.copyfileobj(archive_fd, out_fd)
 
 

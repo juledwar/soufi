@@ -23,6 +23,7 @@ exclude = '''
 omit = [
     '*sofi/tests*',
     '*sofi/testing*',
+    'sofi/__init__.py',
 ]
 
 [tool.isort]
