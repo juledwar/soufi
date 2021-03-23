@@ -205,7 +205,6 @@ EOF
 
     # Build the package
     echo "Building python package"
-    PBR_VERSION=${PBR_VERSION} python setup.py build_sphinx
     PBR_VERSION=${PBR_VERSION} python setup.py sdist
 
     # Make what we just built available to other functions.
