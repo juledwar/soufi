@@ -29,15 +29,75 @@ class TestDebianFinder(base.TestCase):
         fake_response.status_code = code
         return fake_response
 
+    def make_source_info(self, name=None, version=None):
+        if name is None:
+            name = self.factory.make_string()
+        if version is None:
+            version = self.factory.make_string()
+        return dict(name=name, version=version)
+
+    def test_get_source_info(self):
+        df = self.make_finder()
+        source_version = self.factory.make_string()
+        source_name = self.factory.make_string()
+
+        data = dict(
+            result=[
+                {
+                    'binary_version': self.factory.make_string(),
+                    'source': self.factory.make_string(),
+                    'version': self.factory.make_string(),
+                    'name': self.factory.make_string(),
+                },
+                {
+                    'binary_version': df.version,
+                    'source': source_name,
+                    'version': source_version,
+                    'name': df.name,
+                },
+            ]
+        )
+        get = self.patch(requests, 'get')
+        get.return_value = self.make_response(data, requests.codes.ok)
+        source_info = df.get_source_info()
+        expected = dict(name=source_name, version=source_version)
+        self.assertDictEqual(expected, source_info)
+
+    def test_get_source_info_raises_when_response_fails(self):
+        get = self.patch(requests, 'get')
+        get.return_value = self.make_response([], requests.codes.not_found)
+        df = self.make_finder()
+        with testtools.ExpectedException(exceptions.SourceNotFound):
+            df.get_source_info()
+
+    def test_get_source_info_raises_when_cant_find_version(self):
+        df = self.make_finder()
+        data = dict(
+            result=[
+                {
+                    'binary_version': self.factory.make_string(),
+                    'source': self.factory.make_string(),
+                    'version': self.factory.make_string(),
+                    'name': self.factory.make_string(),
+                },
+            ]
+        )
+        get = self.patch(requests, 'get')
+        get.return_value = self.make_response(data, requests.codes.ok)
+        with testtools.ExpectedException(exceptions.SourceNotFound):
+            df.get_source_info()
+
     def test_get_hashes(self):
         df = self.make_finder()
         hashes = [self.factory.make_digest for _ in range(4)]
         data = dict(result=[{'hash': hash} for hash in hashes])
         get = self.patch(requests, 'get')
         get.return_value = self.make_response(data, requests.codes.ok)
-        self.assertEqual(hashes, df.get_hashes())
+        source_info = self.make_source_info()
+        self.assertEqual(hashes, df.get_hashes(source_info))
         get.assert_called_once_with(
-            f"{debian.SNAPSHOT_API}mr/package/{df.name}/{df.version}/srcfiles",
+            f"{debian.SNAPSHOT_API}mr/package/"
+            f"{source_info['name']}/{source_info['version']}/srcfiles",
             timeout=debian.API_TIMEOUT,
         )
 
@@ -45,16 +105,18 @@ class TestDebianFinder(base.TestCase):
         get = self.patch(requests, 'get')
         get.return_value = self.make_response([], requests.codes.bad_request)
         df = self.make_finder()
+        source_info = self.make_source_info()
         with testtools.ExpectedException(exceptions.SourceNotFound):
-            df.get_hashes()
+            df.get_hashes(source_info)
 
     def test_get_hashes_raises_for_response_error(self):
         df = self.make_finder()
+        source_info = self.make_source_info()
         self.patch(requests, 'get').return_value = self.make_response(
             [], requests.codes.ok
         )
         with testtools.ExpectedException(exceptions.SourceNotFound):
-            df.get_hashes()
+            df.get_hashes(source_info)
 
     def test_get_urls(self):
         df = self.make_finder()
@@ -87,6 +149,9 @@ class TestDebianFinder(base.TestCase):
             df.get_urls(['foo'])
 
     def test_find(self):
+        source_info = self.make_source_info()
+        get_source_info = self.patch(debian.DebianFinder, 'get_source_info')
+        get_source_info.return_value = source_info
         hashes = [self.factory.make_digest for _ in range(4)]
         urls = [self.factory.make_url for _ in range(4)]
         url_pairs = [(self.factory.make_string(), url) for url in urls]
@@ -98,7 +163,8 @@ class TestDebianFinder(base.TestCase):
 
         disc_source = df.find()
 
-        get_hashes.assert_called_once()
+        get_source_info.assert_called_once()
+        get_hashes.assert_called_once_with(source_info)
         get_urls.assert_called_once_with(hashes)
         names, urls = zip(*url_pairs)
         self.assertEqual(urls, disc_source.urls)
