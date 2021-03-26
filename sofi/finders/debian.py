@@ -16,13 +16,33 @@ class DebianFinder(finder.SourceFinder):
     distro = finder.Distro.debian.value
 
     def find(self):
-        hashes = self.get_hashes()
+        source_info = self.get_source_info()
+        hashes = self.get_hashes(source_info)
         urls = self.get_urls(hashes)
         return DebianDiscoveredSource(urls)
 
-    def get_hashes(self):
+    def get_source_info(self):
+        """Return a dict of {name, version} of the source."""
+        # This API returns ALL versions of binary packages, you can't
+        # put a version in the API. Here, we grab the output and go
+        # spelunking.
+        url = f"{SNAPSHOT_API}mr/binary/{self.name}/"
+        response = requests.get(url, timeout=API_TIMEOUT)
+        if response.status_code != requests.codes.ok:
+            raise exceptions.SourceNotFound
+        data = response.json()
+        all_versions = data['result']
+        for info in all_versions:
+            if info['binary_version'] == self.version:
+                return dict(name=info['source'], version=info['version'])
+        raise exceptions.SourceNotFound
+
+    def get_hashes(self, source_info):
         # Return a list of file hashes as used by Snapshot.
-        url = f"{SNAPSHOT_API}mr/package/{self.name}/{self.version}/srcfiles"
+        url = (
+            f"{SNAPSHOT_API}mr/package/"
+            f"{source_info['name']}/{source_info['version']}/srcfiles"
+        )
         response = requests.get(url, timeout=API_TIMEOUT)
         if response.status_code != requests.codes.ok:
             raise exceptions.SourceNotFound
