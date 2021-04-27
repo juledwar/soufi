@@ -1,13 +1,8 @@
 export ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd -P)"
-export PYTHON=$(which python3.8)
+export PYTHON=$(which python3)
 export VENV=${ROOT}/venv-sofi
 
-# Get our build vars
-if [ -r ${ROOT}/build.vars ]; then
-    . ${ROOT}/build.vars
-fi
-
-# See if its Linux
+# Figure out our OS
 if [ -f /etc/os-release ]; then
     . /etc/os-release
     export OS_NAME=${ID}
@@ -16,15 +11,17 @@ else
     UNAME=$(uname)
     if [ "${UNAME}" = 'Darwin' ]; then
         export OS_NAME="${UNAME}"
-        # OS X versions match the major as reported by uname
-        #   10.12.x -> 16.x.y
-        #   10.13.x -> 17.x.y
-        #   10.14.x -> 18.x.y
-        export OS_VERSION=$(uname -r | awk -F. '{print $1}')
+        export OS_VERSION=$(sw_vers -productVersion | \
+                             awk -F. '{printf("%02d%02d", $1, $2)}')
     else
         echo "UNKNOWN OS" 1>&2
         exit 1
     fi
+fi
+
+# Get our build vars
+if [ -r ${ROOT}/build.vars ]; then
+    . ${ROOT}/build.vars
 fi
 
 function prep_workspace() {
@@ -59,9 +56,6 @@ function create_venv() {
         fi
     fi
 
-    if [ "${OS_NAME}" = 'ubuntu' ]; then
-        sudo apt-get install -y python3.8-venv python3.8-dev
-    fi
     # Tell virtualenv to build a VENV with the correct version
     # of python provided by functions.
     ${PYTHON} -m venv ${VENV}
@@ -230,80 +224,4 @@ function build_python_package() {
 function get_package() {
     . ${ROOT}/dist/build.vars
     echo "${PKG_NAME}:${PKG_VERSION}"
-}
-
-function build_container() {
-    # Set our defaults
-    local MODE='merge'
-    local REPO='registry-write.ci.ciscolabs.com'
-    local PUSH='false'
-    local OPTIND opt
-
-    function usage() {
-        cat << EOF 1>&2
-Usage: $0 [<options>]
-    -m <mode>
-        premerge: Build for premerge
-        merge: Merge builds (default)
-        tag: Tag builds
-    -r <repo>
-        Docker repo to use
-        Default: ${REPO}
-    -p
-        Push container after build
-    -h
-        Print this help and exit.
-EOF
-    }
-
-    while getopts ":hr:m:p" opt; do
-        case $opt in
-            h)
-                usage
-                exit 0
-                ;;
-            r)
-                REPO=${OPTARG}
-                ;;
-            m)
-                MODE=${OPTARG}
-                ;;
-            p)
-                PUSH='true'
-                ;;
-            \?)
-                echo "Invalid option: -${OPTARG}" >&2
-                usage
-                exit 1
-                ;;
-        esac
-    done
-
-    # Build the package
-    # NOTE(cfb): Technically this has already been done when running in the
-    #            jenkins pipeline. However since we depend on the built package
-    #            to build the container and given it takes about 1s to build the
-    #            package just built it each time. We could try and see if it
-    #            already exists but there is a lot of things that could change
-    #            that would require building the package so just rebuild it.
-    build_python_package -m ${MODE}
-
-    . ${ROOT}/dist/build.vars
-
-    # Replace + in $PKG_VERSION with . for compatibility with docker
-    local DOCKER_PKG_VERSION=$(echo $PKG_VERSION | tr + .)
-
-    docker build --no-cache=true \
-                 --build-arg PACKAGE="${PKG_NAME}-${PKG_VERSION}.tar.gz" \
-                 -f Dockerfile \
-                 -t ${REPO}/${PKG_NAME}:${DOCKER_PKG_VERSION} \
-                 .
-
-    if [ "${PUSH}" = 'true' ]; then
-        docker push "${REPO}/${PKG_NAME}:${DOCKER_PKG_VERSION}"
-        if [ "${MODE}" = 'merge' ]; then
-            docker tag "${REPO}/${PKG_NAME}:${DOCKER_PKG_VERSION}" "${REPO}/${PKG_NAME}:latest-dev"
-            docker push "${REPO}/${PKG_NAME}:latest-dev"
-        fi
-    fi
 }
