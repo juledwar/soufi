@@ -26,6 +26,13 @@ def urls_debian(name, version):
     return disc_source
 
 
+def urls_npm(name, version):
+    npm_finder = finder.factory("npm", name, version, finder.SourceType.npm)
+    disc_source = npm_finder.find()
+    click.echo(disc_source)
+    return disc_source
+
+
 @click.command()
 @click.argument("distro")
 @click.argument("name")
@@ -44,15 +51,18 @@ def main(distro, name, version, output):
 
     If the --output option is present, the URLs are all downloaded and
     combined into a LZMA-compressed tar file and written to the file
-    name specifed.
+    name specifed.  If the original source is a tarball then that tarball is
+    used instead.
 
-    The only sources currently supported are 'debian' and 'ubuntu', one
+    The only sources currently supported are 'debian', 'ubuntu', and 'npm', one
     of which must be specified as the DISTRO argument.
     """
     if distro == 'debian':
         func = urls_debian
     elif distro == 'ubuntu':
         func = urls_ubuntu
+    elif distro == 'npm':
+        func = urls_npm
     else:
         click.echo(f"{distro} not available")
         click.get_current_context().exit(255)
