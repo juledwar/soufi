@@ -133,7 +133,7 @@ class FinderFactory:
     """
 
     def __init__(self):
-        self.finders = dict()
+        self._finders = dict()
         # TODO: Make this path configurable.
         import sofi.finders
 
@@ -142,12 +142,17 @@ class FinderFactory:
             for _name, obj in mod.__dict__.items():
                 if isclass(obj) and issubclass(obj, SourceFinder):
                     # Add class object to our dict.
-                    self.finders[obj.distro] = obj
+                    self._finders[obj.distro] = obj
 
     def __call__(
         self, distro: Union[Distro, str], *args, **kwargs
     ) -> SourceFinder:
-        return self.finders[distro](*args, **kwargs)
+        return self._finders[distro](*args, **kwargs)
+
+    @property
+    def supported_types(self):
+        """Return a list of known Finder types."""
+        return list(self._finders.keys())
 
 
 factory = FinderFactory()
