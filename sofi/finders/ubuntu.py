@@ -21,8 +21,10 @@ class UbuntuFinder(finder.SourceFinder):
         urls = tuple(sorted(source.sourceFileUrls()))
         return UbuntuDiscoveredSource(urls)
 
+    # NOTE(nic): workaround an apparent bug in Python 3.6 where the default
+    #  maxsize for the functools.lru_cache decorator does not work
     @classmethod
-    @functools.lru_cache
+    @functools.lru_cache(maxsize=128)
     def get_archive(cls):
         """Retrieve, and cache, the LP distro main archive object."""
         cachedir = pathlib.Path.home().joinpath(".launchpadlib", "cache")
