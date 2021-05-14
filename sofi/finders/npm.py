@@ -17,7 +17,7 @@ class NPMFinder(finder.SourceFinder):
 
     distro = finder.SourceType.npm.value
 
-    def find(self):
+    def _find(self):
         source_url = self.get_source_url()
         return NPMDiscoveredSource([source_url])
 

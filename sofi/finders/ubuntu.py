@@ -15,7 +15,7 @@ class UbuntuFinder(finder.SourceFinder):
         super().__init__(*args, **kwargs)
         self.lp_archive = self.get_archive()
 
-    def find(self):
+    def _find(self):
         build = self.get_build()
         source = self.get_source_from_build(build)
         urls = tuple(sorted(source.sourceFileUrls()))

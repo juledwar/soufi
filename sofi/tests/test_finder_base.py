@@ -14,18 +14,18 @@ from sofi.testing import base
 
 
 class TestSourceFinderBase(base.TestCase):
+    class TestFinder(SourceFinder):
+        def distro(self):
+            pass
+
+        def _find(self):
+            pass
+
     def test_stores_init_params(self):
-        class TestFinder(SourceFinder):
-            def distro(self):
-                pass
-
-            def find(self):
-                pass
-
         name = self.factory.make_string()
         version = self.factory.make_string()
         s_type = self.factory.pick_enum(SourceType)
-        sf = TestFinder(name, version, s_type)
+        sf = self.TestFinder(name, version, s_type)
         self.expectThat(sf.name, Equals(name))
         self.expectThat(sf.version, Equals(version))
         self.expectThat(sf.s_type, Equals(s_type))
@@ -53,6 +53,36 @@ class TestSourceFinderBase(base.TestCase):
         with testtools.ExpectedException(TypeError) as e:
             TestFinder(name, version, s_type)
             self.assertIn('abstract methods find', str(e))
+
+    def test_find_overrides_constructor_values(self):
+        name = self.factory.random_choice([None, self.factory.make_string()])
+        version = self.factory.random_choice(
+            [None, self.factory.make_string()]
+        )
+        s_type = self.factory.random_choice(
+            [None, self.factory.pick_enum(SourceType)]
+        )
+        name2 = self.factory.make_string()
+        version2 = self.factory.make_string()
+        s_type2 = self.factory.pick_enum(SourceType)
+        sf = self.TestFinder(name, version, s_type)
+        sf.find(name2, version2, s_type2)
+
+        self.expectThat(sf.name, Equals(name2))
+        self.expectThat(sf.version, Equals(version2))
+        self.expectThat(sf.s_type, Equals(s_type2))
+
+    def test_error_if_missing_find_value(self):
+        for values in [
+            (None, self.factory.make_string(), self.factory.make_string()),
+            (self.factory.make_string(), None, self.factory.make_string()),
+            (self.factory.make_string(), self.factory.make_string(), None),
+        ]:
+            sf = self.TestFinder(*values)
+            e = self.assertRaises(ValueError, sf.find)
+            self.assertEqual(
+                "All of name, version and s_type must have a value", str(e)
+            )
 
 
 class TestDiscoveredSourceBase(base.TestCase):

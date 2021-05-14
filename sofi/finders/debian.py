@@ -15,7 +15,7 @@ class DebianFinder(finder.SourceFinder):
 
     distro = finder.Distro.debian.value
 
-    def find(self):
+    def _find(self):
         source_info = self.get_source_info()
         hashes = self.get_hashes(source_info)
         urls = self.get_urls(hashes)

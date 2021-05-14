@@ -106,20 +106,56 @@ class DiscoveredSource(metaclass=abc.ABCMeta):
 
 
 class SourceFinder(metaclass=abc.ABCMeta):
-    """Base class for all objects that implement source finding."""
+    """Base class for all objects that implement source finding.
+
+    :param name: Name of the source package to find
+    :param version: Version of the source package to find
+    :param s_type: A SourceType indicating the type of package
+
+    These options may be left unspecified if required and the call to
+    `find()` should then specify any that were not passed to `__init__`.
+    """
 
     @property
     @abc.abstractmethod
     def distro(self) -> Union[Distro, str]:
         raise NotImplementedError  # pragma: no cover
 
-    def __init__(self, name: str, version: str, s_type: SourceType):
+    def __init__(
+        self, name: str = None, version: str = None, s_type: SourceType = None
+    ):
         self.name = name
         self.version = version
         self.s_type = s_type
 
+    def find(
+        self, name: str = None, version: str = None, s_type: SourceType = None
+    ):
+        """Find source and return a DiscoveredSource instance.
+
+        :param name: Name of the source package to find
+        :param version: Version of the source package to find
+        :param s_type: A SourceType indicating the type of package
+
+        These options may be left unspecified if required and will default
+        to the values passed in the constructor. Any value specified here will
+        override the value passed in the constructor.
+        """
+        if name is not None:
+            self.name = name
+        if version is not None:
+            self.version = version
+        if s_type is not None:
+            self.s_type = s_type
+
+        if None in (self.name, self.version, self.s_type):
+            raise ValueError(
+                "All of name, version and s_type must have a value"
+            )
+        return self._find()
+
     @abc.abstractmethod
-    def find(self) -> DiscoveredSource:
+    def _find(self) -> DiscoveredSource:
         raise NotImplementedError  # pragma: no cover
 
 
@@ -129,7 +165,7 @@ class FinderFactory:
     Once instantiated, call as:
         factory('<type>', arg1, arg2...)
     Where <type> is a known Finder type (e.g. 'ubuntu') and the rest of the
-    args/kwargs are passed direction to the Finder's __init__.
+    args/kwargs are passed directly to the Finder's __init__.
     """
 
     def __init__(self):
