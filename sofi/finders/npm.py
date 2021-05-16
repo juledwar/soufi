@@ -1,6 +1,3 @@
-import contextlib
-import tempfile
-
 import requests
 
 from sofi import exceptions, finder
@@ -34,26 +31,12 @@ class NPMFinder(finder.SourceFinder):
 class NPMDiscoveredSource(finder.DiscoveredSource):
     """A discovered NPM source package."""
 
+    make_archive = finder.DiscoveredSource.remote_url_is_archive
+
     def populate_archive(self, *args, **kwargs):  # pragma: no cover
         # Required by the base class but NPMs are already tarballs so
         # nothing to do.
         pass
-
-    @contextlib.contextmanager
-    def make_archive(self):
-        """Yield a copy of the downloaded archive.
-
-        Overrides the base class method since we don't need to re-make the
-        archive from NPM. Simply downloads the NPM tarball and yields it.
-        """
-        with tempfile.TemporaryDirectory() as target_dir:
-            [url] = self.urls
-            _, download_file_name = url.rsplit('/', 1)
-            tarfile_name = self.download_file(
-                target_dir, download_file_name, url
-            )
-            with open(tarfile_name, 'rb') as fd:
-                yield fd
 
     def __repr__(self):
         return self.urls[0]

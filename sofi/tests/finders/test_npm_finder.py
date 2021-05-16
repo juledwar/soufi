@@ -1,12 +1,7 @@
-import pathlib
-import shutil
-import tempfile
 from unittest import mock
 
-import fixtures
 import requests
 import testtools
-from testtools.matchers import FileContains
 
 from sofi import exceptions
 from sofi.finder import SourceType
@@ -71,24 +66,5 @@ class TestNPMDiscoveredSource(base.TestCase):
         self.assertEqual(url, repr(nds))
 
     def test_make_archive(self):
-        tmpdir = self.useFixture(fixtures.TempDir()).path
-
-        # Make a fake tar file
-        content = self.factory.make_bytes('content')
-        _, fake_file = tempfile.mkstemp(dir=tmpdir)
-        with open(fake_file, 'wb') as fake_file_fd:
-            fake_file_fd.write(content)
-
-        # Patch out download_file to return the fake file:
         nds = self.make_discovered_source()
-        download_file = self.patch(nds, 'download_file')
-        download_file.return_value = pathlib.Path(fake_file)
-
-        # Call make_archive to fetch the fake file:
-        _, tar_file_name = tempfile.mkstemp(dir=tmpdir)
-        with nds.make_archive() as tarfile_fd:
-            with open(tar_file_name, 'wb') as f:
-                shutil.copyfileobj(tarfile_fd, f)
-
-        # Test that the copied file contains the fake downloaded content.
-        self.assertThat(tar_file_name, FileContains(content.decode()))
+        self.assertEqual(nds.make_archive, nds.remote_url_is_archive)

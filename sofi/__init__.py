@@ -6,31 +6,46 @@ import click
 from sofi import exceptions, finder
 
 
-def urls_ubuntu(name, version):
-    click.echo("Logging in to Launchpad")
-    ubuntu_finder = finder.factory(
-        "ubuntu", name, version, finder.SourceType.os
-    )
-    click.echo("Finding source in Launchpad")
-    disc_source = ubuntu_finder.find()
-    click.echo(disc_source)
-    return disc_source
+class Finder:
+    @classmethod
+    def find(cls, finder):
+        source = finder.find()
+        click.echo(source)
+        return source
 
+    @classmethod
+    def ubuntu(cls, name, version):
+        click.echo("Logging in to Launchpad")
+        ubuntu_finder = finder.factory(
+            "ubuntu", name, version, finder.SourceType.os
+        )
+        click.echo("Finding source in Launchpad")
+        return cls.find(ubuntu_finder)
 
-def urls_debian(name, version):
-    debian_finder = finder.factory(
-        "debian", name, version, finder.SourceType.os
-    )
-    disc_source = debian_finder.find()
-    click.echo(disc_source)
-    return disc_source
+    @classmethod
+    def debian(cls, name, version):
+        debian_finder = finder.factory(
+            "debian", name, version, finder.SourceType.os
+        )
+        return cls.find(debian_finder)
 
+    @classmethod
+    def npm(cls, name, version):
+        npm_finder = finder.factory(
+            "npm", name, version, finder.SourceType.npm
+        )
+        return cls.find(npm_finder)
 
-def urls_npm(name, version):
-    npm_finder = finder.factory("npm", name, version, finder.SourceType.npm)
-    disc_source = npm_finder.find()
-    click.echo(disc_source)
-    return disc_source
+    @classmethod
+    def python(cls, index, name, version):
+        python_finder = finder.factory(
+            "python",
+            name=name,
+            version=version,
+            s_type=finder.SourceType.python,
+            pyindex=index,
+        )
+        return cls.find(python_finder)
 
 
 @click.command()
@@ -38,12 +53,18 @@ def urls_npm(name, version):
 @click.argument("name")
 @click.argument("version")
 @click.option(
+    "--pyindex",
+    default="https://pypi.org/pypi/",
+    help="Python package index if getting Python",
+    show_default=True,
+)
+@click.option(
     "--output",
     "-o",
     help="Download the source archive and write to this file name",
     default=None,
 )
-def main(distro, name, version, output):
+def main(distro, name, version, output, pyindex):
     """Find and optionally download source files.
 
     Given a binary name and version, will find and print the URL(s) to the
@@ -54,20 +75,20 @@ def main(distro, name, version, output):
     name specifed.  If the original source is a tarball then that tarball is
     used instead.
 
-    The only sources currently supported are 'debian', 'ubuntu', and 'npm', one
-    of which must be specified as the DISTRO argument.
+    The only sources currently supported are 'debian', 'ubuntu',
+    'python' and 'npm', one of which must be specified as the DISTRO
+    argument.
     """
-    if distro == 'debian':
-        func = urls_debian
-    elif distro == 'ubuntu':
-        func = urls_ubuntu
-    elif distro == 'npm':
-        func = urls_npm
-    else:
+    try:
+        func = getattr(Finder, distro)
+    except AttributeError:
         click.echo(f"{distro} not available")
         click.get_current_context().exit(255)
     try:
-        disc_source = func(name, version)
+        if distro == 'python':
+            disc_source = func(name, version, pyindex=pyindex)
+        else:
+            disc_source = func(name, version)
     except exceptions.SourceNotFound:
         click.echo("source not found")
         click.get_current_context().exit(255)

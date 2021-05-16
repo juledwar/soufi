@@ -24,5 +24,5 @@ class TestFinderFactory(base.TestCase):
     def test_supported_types(self):
         self.assertEqual(
             sorted(factory.supported_types),
-            sorted(['debian', 'npm', 'ubuntu']),
+            ['debian', 'npm', 'python', 'ubuntu'],
         )

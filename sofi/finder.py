@@ -58,6 +58,34 @@ class DiscoveredSource(metaclass=abc.ABCMeta):
             with open(tarfile_name, 'rb') as fd:
                 yield fd
 
+    @contextlib.contextmanager
+    def remote_url_is_archive(self) -> ContextManager[BinaryIO]:
+        """Replace make_archive when remote URL is already an archive.
+
+        In the case where the URL found for the source is already an archive,
+        derived classes can replace the make_archive function with this one
+        instead, and it will simply download the remote archive and
+        yield its file instead of making a new archive.
+
+        The derived class should do something such as::
+
+            class MyDiscoveredSource(DiscoveredSource):
+
+                make_archive = DiscoveredSource.remote_url_is_archive
+
+                ...
+
+        and define `populate_archive` as a no-op.
+        """
+        with tempfile.TemporaryDirectory() as target_dir:
+            [url] = self.urls
+            _, download_file_name = url.rsplit('/', 1)
+            tarfile_name = self.download_file(
+                target_dir, download_file_name, url
+            )
+            with open(tarfile_name, 'rb') as fd:
+                yield fd
+
     @abc.abstractmethod
     def populate_archive(self, temp_dir: str, tar: tarfile.TarFile):
         """Populate a TarFile object with downloaded files.

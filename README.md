@@ -7,9 +7,7 @@ Currently supported finders are:
  - Debian OS packages
  - Ubuntu OS packages
  - NPM packages
-
-Coming soon:
- - Python
+ - Python sdists
 
 Future:
  - java

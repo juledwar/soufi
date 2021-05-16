@@ -15,6 +15,10 @@ from sofi.testing import base
 
 
 class TestUbuntuFinder(base.TestCase):
+    def tearDown(self):
+        super().tearDown()
+        ubuntu.UbuntuFinder.get_archive.cache_clear()
+
     def make_finder(self, name=None, version=None):
         if name is None:
             name = self.factory.make_string('name')
