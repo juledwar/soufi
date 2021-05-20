@@ -51,6 +51,7 @@ class PythonDiscoveredSource(finder.DiscoveredSource):
     """A discovered Python sdist package."""
 
     make_archive = finder.DiscoveredSource.remote_url_is_archive
+    archive_extension = '.tar.gz'
 
     def populate_archive(self, *args, **kwargs):  # pragma: no cover
         # Required by the base class but sdists are already tarballs so

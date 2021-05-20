@@ -37,13 +37,13 @@ class Finder:
         return cls.find(npm_finder)
 
     @classmethod
-    def python(cls, index, name, version):
+    def python(cls, name, version, pyindex=None):
         python_finder = finder.factory(
             "python",
             name=name,
             version=version,
             s_type=finder.SourceType.python,
-            pyindex=index,
+            pyindex=pyindex,
         )
         return cls.find(python_finder)
 

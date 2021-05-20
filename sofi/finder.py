@@ -33,6 +33,10 @@ class Distro(enum.Enum):
 class DiscoveredSource(metaclass=abc.ABCMeta):
     """Base class for all objects implementing a discovered source."""
 
+    # The default 'make_archive' produces .tar.xz files. Override as
+    # necessary if make_archive is also overridden.
+    archive_extension = '.tar.xz'
+
     def __init__(self, urls: Iterable[str]):
         self._urls = urls
 
