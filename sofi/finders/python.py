@@ -29,6 +29,17 @@ class PythonFinder(finder.SourceFinder):
 
     def get_source_url(self):
         """Get the URL from the JSON info for the Python package."""
+        try:
+            return self.get_pypi_source_url()
+        except (KeyError, exceptions.SourceNotFound):
+            if self.index == DEFAULT_INDEX:
+                # The default is pypi, no point trying devpi.
+                raise
+            pass
+        return self._get_devpi_source_url()
+
+    def get_pypi_source_url(self):
+        """Get URLs for packages that are in a pypi server."""
         url = f"{self.index}{self.name}/{self.version}/json"
         response = requests.get(url, timeout=API_TIMEOUT)
         if response.status_code != requests.codes.ok:
@@ -45,6 +56,21 @@ class PythonFinder(finder.SourceFinder):
         # It should not be possible to get here unless the JSON returned
         # from the index is corrupted.
         raise exceptions.SourceNotFound
+
+    def _get_devpi_source_url(self):
+        """Get URLs for packages that are in a devpi server.
+
+        This returns a different structure to pypi format.
+        """
+        url = f"{self.index}{self.name}/{self.version}"
+        headers = {'Accept': 'application/json'}
+        response = requests.get(url, headers=headers, timeout=API_TIMEOUT)
+        if response.status_code != requests.codes.ok:
+            raise exceptions.SourceNotFound
+        data = response.json()
+        result = data['result']
+        href = result['+links'][0]['href']
+        return href
 
 
 class PythonDiscoveredSource(finder.DiscoveredSource):

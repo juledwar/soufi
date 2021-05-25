@@ -104,7 +104,7 @@ def main(distro, name, version, pyindex, output, auto_output):
         click.echo("source not found")
         click.get_current_context().exit(255)
 
-    if auto_output is not None or output is not None:
+    if auto_output is not False or output is not None:
         fname = output
         if auto_output:
             fname = f"{name}-{version}.{distro}{disc_source.archive_extension}"

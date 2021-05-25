@@ -10,15 +10,37 @@ from sofi.testing import base
 
 
 class TestPythonFinder(base.TestCase):
-    def make_finder(self, name=None, version=None, pyindex=None):
+
+    scenarios = [
+        ('pypi', dict(index='pypi')),
+        ('devpi', dict(index='devpi')),
+    ]
+
+    def make_finder(self, name=None, version=None):
         if name is None:
             name = self.factory.make_string('name')
         if version is None:
             version = self.factory.make_string('version')
         kwargs = dict(name=name, version=version, s_type=SourceType.python)
-        if pyindex is not None:
-            kwargs['pyindex'] = pyindex
+        if self.index == 'devpi':
+            kwargs['pyindex'] = self.factory.make_url()
         return python.PythonFinder(**kwargs)
+
+    def make_data(self, version, url):
+        if self.index == 'devpi':
+            result = dict()
+            result['+links'] = []
+            result['+links'].append(dict(href=url))
+            result['+links'].append(dict(href=self.factory.make_url()))
+            return dict(result=result)
+
+        releases = {
+            version: [
+                dict(packagetype='foobar', url='foobar'),
+                dict(packagetype='sdist', url=url),
+            ]
+        }
+        return dict(releases=releases)
 
     def make_response(self, data, code):
         fake_response = mock.MagicMock()
@@ -26,27 +48,34 @@ class TestPythonFinder(base.TestCase):
         fake_response.status_code = code
         return fake_response
 
+    def get_requests_call_for_scenario(self, finder):
+        if self.index == 'devpi':
+            return mock.call(
+                f"{finder.index}{finder.name}/{finder.version}",
+                headers={'Accept': 'application/json'},
+                timeout=30,
+            )
+        return mock.call(
+            f"https://pypi.org/pypi/{finder.name}/{finder.version}/json",
+            timeout=30,
+        )
+
     def test_get_source_url(self):
         finder = self.make_finder()
         url = self.factory.make_url()
-        releases = {
-            finder.version: [
-                dict(packagetype='foobar', url='foobar'),
-                dict(packagetype='sdist', url=url),
-            ]
-        }
-        data = dict(releases=releases)
+        data = self.make_data(finder.version, url)
 
         get = self.patch(requests, 'get')
         get.return_value = self.make_response(data, requests.codes.ok)
         found_url = finder.get_source_url()
         self.assertEqual(found_url, url)
-        get.assert_called_once_with(
-            f"https://pypi.org/pypi/{finder.name}/{finder.version}/json",
-            timeout=30,
-        )
+        call = self.get_requests_call_for_scenario(finder)
+        self.assertIn(call, get.call_args_list)
 
     def test_get_source_url_source_not_found(self):
+        if self.index == 'devpi':
+            # devpi returns data or 404.
+            self.skipTest("Not applicable to devpi")
         finder = self.make_finder()
         releases = {
             'badversion': [
@@ -54,30 +83,11 @@ class TestPythonFinder(base.TestCase):
             ]
         }
         data = dict(releases=releases)
+        data = self.make_data('badversion', 'foobar')
 
         get = self.patch(requests, 'get')
         get.return_value = self.make_response(data, requests.codes.ok)
         self.assertRaises(exceptions.SourceNotFound, finder.get_source_url)
-
-    def test_get_source_url_custom_index(self):
-        index = self.factory.make_url()
-        finder = self.make_finder(pyindex=index)
-        url = self.factory.make_url()
-        releases = {
-            finder.version: [
-                dict(packagetype='sdist', url=url),
-            ]
-        }
-        data = dict(releases=releases)
-
-        get = self.patch(requests, 'get')
-        get.return_value = self.make_response(data, requests.codes.ok)
-        found_url = finder.get_source_url()
-        self.assertEqual(found_url, url)
-        get.assert_called_once_with(
-            f"{index}/{finder.name}/{finder.version}/json",
-            timeout=30,
-        )
 
     def test_get_source_info_raises_when_response_fails(self):
         get = self.patch(requests, 'get')
