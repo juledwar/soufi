@@ -47,6 +47,16 @@ class Finder:
         )
         return cls.find(python_finder)
 
+    @classmethod
+    def centos(cls, name, version):
+        centos_finder = finder.factory(
+            "centos",
+            name=name,
+            version=version,
+            s_type=finder.SourceType.os,
+        )
+        return cls.find(centos_finder)
+
 
 @click.command()
 @click.argument("distro")
