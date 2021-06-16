@@ -93,6 +93,19 @@ class TestCentosFinder(base.TestCase):
             f'{base_url}{finder.name}-{finder.version}.src.rpm', url
         )
 
+    def test__get_path_pre_6_2_versions(self):
+        finder = self.make_finder()
+        data = self.make_index_page_content(finder.name, finder.version)
+        get = self.patch(requests, 'get')
+        get.return_value = self.make_response(data, requests.codes.ok)
+        for dir_ in ('6.1/', '6.0/', '5.0/'):
+            url = finder._get_path(dir_)
+
+            base_url = f'https://vault.centos.org/{dir_}os/Source/Packages/'
+            self.assertEqual(
+                f'{base_url}{finder.name}-{finder.version}.src.rpm', url
+            )
+
     def test__get_path_returns_None_if_not_found(self):
         finder = self.make_finder()
         data = self.make_index_page_content(
@@ -105,8 +118,15 @@ class TestCentosFinder(base.TestCase):
 
     def test_find_raises_when_not_found(self):
         finder = self.make_finder()
-        self.patch(finder, '_get_dirs').return_value(['a'])
+        self.patch(finder, '_get_dirs').return_value = ['a']
         self.patch(finder, '_get_path').return_value = None
+        with testtools.ExpectedException(exceptions.SourceNotFound):
+            finder.find()
+
+    def test_find_raises_when_index_dir_missing(self):
+        finder = self.make_finder()
+        self.patch(finder, '_get_dirs').return_value = ['a']
+        self.patch(finder, '_get_path').side_effect = exceptions.DownloadError
         with testtools.ExpectedException(exceptions.SourceNotFound):
             finder.find()
 

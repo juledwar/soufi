@@ -20,7 +20,10 @@ class CentosFinder(finder.SourceFinder):
     def _find(self):
         dirs = self._get_dirs()
         for dir_ in sorted(dirs, reverse=True):
-            url = self._get_path(dir_)
+            try:
+                url = self._get_path(dir_)
+            except exceptions.DownloadError:
+                break
             if url:
                 return CentosDiscoveredSource([url])
         raise exceptions.SourceNotFound
@@ -44,7 +47,12 @@ class CentosFinder(finder.SourceFinder):
         # Grab source directory listing at dir and look for
         # <name>-<version>.src.rpm.
         os_dir = "BaseOS" if dir_.startswith("8") else "os"
-        url = f"{VAULT}{dir_}{os_dir}/Source/SPackages/"
+        packages_dir = "SPackages"
+        if int(dir_[0]) < 6 or dir_ in ('6.1/', '6.0/'):
+            # Releases up to and including 6.1 use "Packages" as the dir
+            # name, and then inexplicably they started using SPackages.
+            packages_dir = "Packages"
+        url = f"{VAULT}{dir_}{os_dir}/Source/{packages_dir}/"
         content = self._get_url(url)
         tree = html.fromstring(content)
         href = f"{self.name}-{self.version}.src.rpm"
