@@ -1,3 +1,4 @@
+import urllib
 from unittest import mock
 
 import requests
@@ -9,7 +10,7 @@ from sofi.finders import centos
 from sofi.testing import base
 
 
-class TestCentosFinder(base.TestCase):
+class BaseCentosTest(base.TestCase):
     def make_finder(self, name=None, version=None):
         if name is None:
             name = self.factory.make_string('name')
@@ -54,6 +55,13 @@ class TestCentosFinder(base.TestCase):
             + b'</table>'
         )
 
+
+class TestCentosFinder(BaseCentosTest):
+    def setUp(self):
+        super().setUp()
+        # Make sure this doesn't interfere with fast lookup tests.
+        self.patch(centos.CentosFinder, '_repo_lookup').return_value = None
+
     def test__get_dirs(self):
         finder = self.make_finder()
         versions = ['4.5', '7.0', '7.1', '8.0']
@@ -63,7 +71,9 @@ class TestCentosFinder(base.TestCase):
         get.return_value = self.make_response(data, requests.codes.ok)
         dirs = finder._get_dirs()
         self.assertEqual(versions, dirs)
-        get.assert_called_once_with("https://vault.centos.org/", timeout=30)
+        get.assert_called_once_with(
+            "https://vault.centos.org/centos/", timeout=30
+        )
 
     def test__get_path_pre_8_versions(self):
         finder = self.make_finder()
@@ -73,7 +83,9 @@ class TestCentosFinder(base.TestCase):
         dir_ = self.factory.make_string('7.0') + '/'
         url = finder._get_path(dir_)
 
-        base_url = f'https://vault.centos.org/{dir_}os/Source/SPackages/'
+        base_url = (
+            f'https://vault.centos.org/centos/{dir_}os/Source/SPackages/'
+        )
         get.assert_called_once_with(base_url, timeout=30)
         self.assertEqual(
             f'{base_url}{finder.name}-{finder.version}.src.rpm', url
@@ -87,7 +99,9 @@ class TestCentosFinder(base.TestCase):
         dir_ = self.factory.make_string('8.0') + '/'
         url = finder._get_path(dir_)
 
-        base_url = f'https://vault.centos.org/{dir_}BaseOS/Source/SPackages/'
+        base_url = (
+            f'https://vault.centos.org/centos/{dir_}BaseOS/Source/SPackages/'
+        )
         get.assert_called_once_with(base_url, timeout=30)
         self.assertEqual(
             f'{base_url}{finder.name}-{finder.version}.src.rpm', url
@@ -101,7 +115,9 @@ class TestCentosFinder(base.TestCase):
         for dir_ in ('6.1/', '6.0/', '5.0/'):
             url = finder._get_path(dir_)
 
-            base_url = f'https://vault.centos.org/{dir_}os/Source/Packages/'
+            base_url = (
+                f'https://vault.centos.org/centos/{dir_}os/Source/Packages/'
+            )
             self.assertEqual(
                 f'{base_url}{finder.name}-{finder.version}.src.rpm', url
             )
@@ -148,6 +164,101 @@ class TestCentosFinder(base.TestCase):
         disc_source = finder.find()
         self.assertIsInstance(disc_source, centos.CentosDiscoveredSource)
         self.assertEqual([url], disc_source.urls)
+
+    def test_find_calls_get_repo_if_using_fallback_method(self):
+        finder = self.make_finder(version='1.2.3.el8')
+        self.patch(finder, '_get_dirs').return_value = []
+        url = self.factory.make_url()
+        self.patch(finder, '_repo_lookup').return_value = url
+        self.assertEqual(url, finder._find().urls[0])
+
+
+class TestCentosFinderRepoLookup(BaseCentosTest):
+    def make_repo(self, evr, sourcerpm=None, location=None):
+        repo = mock.MagicMock()
+        findall = mock.MagicMock()
+        repo.findall = findall
+        package = mock.MagicMock()
+        package.evr = evr
+        package.sourcerpm = sourcerpm
+        package.location = location
+        findall.return_value = [package]
+        return repo
+
+    def test_returns_None_when_repo_load_fails(self):
+        finder = self.make_finder()
+        self.patch(finder, '_get_repo').return_value = None
+        self.assertIsNone(finder._repo_lookup())
+
+    def test_returns_None_when_package_not_found_in_repo(self):
+        repo = self.make_repo(evr='')
+        finder = self.make_finder()
+        self.patch(finder, '_get_repo').return_value = repo
+        self.assertIsNone(finder._repo_lookup())
+
+    def test_returns_None_when_source_repo_load_fails(self):
+        finder = self.make_finder()
+        repo = self.make_repo(
+            evr=finder.version,
+            sourcerpm=f'{finder.name}-{finder.version}.src.rpm',
+        )
+        get_repo = self.patch(finder, '_get_repo')
+        get_repo.side_effect = (repo, None)
+        self.assertIsNone(finder._repo_lookup())
+        self.assertEqual(2, len(get_repo.mock_calls))
+
+    def test_returns_None_when_source_package_not_found_in_repo(self):
+        finder = self.make_finder()
+        repo = self.make_repo(
+            evr=finder.version,
+            sourcerpm=f'{finder.name}-{finder.version}.src.rpm',
+        )
+        src_repo = self.make_repo(evr='')
+        get_repo = self.patch(finder, '_get_repo')
+        get_repo.side_effect = (repo, src_repo)
+        self.assertIsNone(finder._repo_lookup())
+        self.assertEqual(2, len(get_repo.mock_calls))
+
+    def test_returns_url_when_source_package_is_found(self):
+        finder = self.make_finder()
+        repo = self.make_repo(
+            evr=finder.version,
+            sourcerpm=f'{finder.name}-{finder.version}.src.rpm',
+        )
+        location = self.factory.make_string('location;')
+        src_repo = self.make_repo(evr=finder.version, location=location)
+        get_repo = self.patch(finder, '_get_repo')
+        get_repo.side_effect = (repo, src_repo)
+        self.assertEqual(
+            f'{centos.VAULT}/8/BaseOS/Source/{location}', finder._repo_lookup()
+        )
+
+    def test__get_repo_returns_None_when_HTTPError(self):
+        url = self.factory.make_url()
+        load = self.patch(centos.repomd, 'load')
+        load.side_effect = urllib.error.HTTPError(
+            url, '404', 'foo', dict(), None
+        )
+        finder = self.make_finder()
+        repo = finder._get_repo(url)
+        self.assertIsNone(repo)
+
+    def test__get_repo_returns_repo(self):
+        load = self.patch(centos.repomd, 'load')
+        load.return_value = mock.sentinel.REPO
+        finder = self.make_finder()
+        url = self.factory.make_url()
+        repo = finder._get_repo(url)
+        load.assert_called_once_with(url)
+        self.assertEqual(repo, mock.sentinel.REPO)
+
+    def test__get_repo_is_cached(self):
+        load = self.patch(centos.repomd, 'load')
+        url = self.factory.make_url()
+        finder = self.make_finder()
+        finder._get_repo(url)
+        finder._get_repo(url)
+        load.assert_called_once_with(url)
 
 
 class TestCentosDiscoveredSource(base.TestCase):
