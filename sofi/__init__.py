@@ -57,6 +57,17 @@ class Finder:
         )
         return cls.find(centos_finder)
 
+    @classmethod
+    def alpine(cls, name, version, aports_dir):
+        alpine_finder = finder.factory(
+            "alpine",
+            name=name,
+            version=version,
+            s_type=finder.SourceType.os,
+            aports_dir=aports_dir,
+        )
+        return cls.find(alpine_finder)
+
 
 @click.command()
 @click.argument("distro")
@@ -66,6 +77,12 @@ class Finder:
     "--pyindex",
     default="https://pypi.org/pypi/",
     help="Python package index if getting Python",
+    show_default=True,
+)
+@click.option(
+    "--aports",
+    default=None,
+    help="Path to a checked-out aports directory if getting Alpine",
     show_default=True,
 )
 @click.option(
@@ -85,7 +102,7 @@ class Finder:
     "{name}-{version}.{distro/type}.tar.[gz|xz] "
     "(This option takes precedence over -o/--output)",
 )
-def main(distro, name, version, pyindex, output, auto_output):
+def main(distro, name, version, pyindex, aports, output, auto_output):
     """Find and optionally download source files.
 
     Given a binary name and version, will find and print the URL(s) to the
@@ -105,9 +122,14 @@ def main(distro, name, version, pyindex, output, auto_output):
     except AttributeError:
         click.echo(f"{distro} not available")
         click.get_current_context().exit(255)
+    if distro == 'alpine' and aports is None:
+        click.echo("Must provide --aports for Alpine")
+        click.get_current_context().exit(255)
     try:
         if distro == 'python':
             disc_source = func(name, version, pyindex=pyindex)
+        elif distro == 'alpine':
+            disc_source = func(name, version, aports_dir=aports)
         else:
             disc_source = func(name, version)
     except exceptions.SourceNotFound:

@@ -29,6 +29,7 @@ class Distro(enum.Enum):
     ubuntu = "ubuntu"
     rhel = "rhel"
     centos = "centos"
+    alpine = "alpine"
 
 
 class DiscoveredSource(metaclass=abc.ABCMeta):
