@@ -9,6 +9,7 @@ from sofi import exceptions, finder
 
 # Shell snippet that will source an APKBUILD and spit out the vars that we
 # need.
+API_TIMEOUT = 30  # seconds
 SH_GET_APK_VARS = """
 . {file}
 echo $source
@@ -166,7 +167,9 @@ class AlpineDiscoveredSource(finder.DiscoveredSource):
                 arcfile_name = Path(temp_dir) / name
                 copyfile(srcfile, arcfile_name)
             else:
-                arcfile_name = self.download_file(temp_dir, name, url)
+                arcfile_name = self.download_file(
+                    temp_dir, name, url, timeout=API_TIMEOUT
+                )
             tar.add(arcfile_name, arcname=name, filter=self.reset_tarinfo)
 
     def __repr__(self) -> str:

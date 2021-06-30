@@ -31,7 +31,7 @@ class TestUbuntuFinder(base.TestCase):
         self.make_finder()
         self.make_finder()
         login.assert_called_once_with(
-            "sofi", "production", mock.ANY, version="devel"
+            "sofi", "production", mock.ANY, version="devel", timeout=30
         )
 
     def test_get_archive(self):

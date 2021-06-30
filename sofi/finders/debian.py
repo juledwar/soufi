@@ -85,7 +85,9 @@ class DebianDiscoveredSource(finder.DiscoveredSource):
 
     def populate_archive(self, temp_dir, tar):
         for name, url in zip(self.names, self.urls):
-            arcfile_name = self.download_file(temp_dir, name, url)
+            arcfile_name = self.download_file(
+                temp_dir, name, url, timeout=API_TIMEOUT
+            )
             tar.add(arcfile_name, arcname=name, filter=self.reset_tarinfo)
 
     def __repr__(self):

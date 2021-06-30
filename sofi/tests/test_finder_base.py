@@ -136,7 +136,7 @@ class TestDiscoveredSourceBase(base.TestCase):
         returned_path = tds.download_file(tmpdir, target, url)
 
         expected_path = pathlib.Path(tmpdir) / target
-        get.assert_called_once_with(url, stream=True)
+        get.assert_called_once_with(url, stream=True, timeout=None)
         self.assertThat(expected_path, Equals(returned_path))
         # Cannot use matchers.FileContains because it returns decoded
         # strings...damn.

@@ -5,6 +5,8 @@ from launchpadlib.launchpad import Launchpad
 
 from sofi import exceptions, finder
 
+API_TIMEOUT = 30  # seconds
+
 
 class UbuntuFinder(finder.SourceFinder):
     """Find Ubuntu source files."""
@@ -29,7 +31,11 @@ class UbuntuFinder(finder.SourceFinder):
         """Retrieve, and cache, the LP distro main archive object."""
         cachedir = pathlib.Path.home().joinpath(".launchpadlib", "cache")
         lp = Launchpad.login_anonymously(
-            "sofi", "production", cachedir, version="devel"
+            "sofi",
+            "production",
+            cachedir,
+            version="devel",
+            timeout=API_TIMEOUT,
         )
         distribution = lp.distributions[cls.distro]
         return distribution.main_archive
@@ -61,7 +67,9 @@ class UbuntuDiscoveredSource(finder.DiscoveredSource):
         # The file name is the last segment of the URL path.
         names = [url.rsplit('/', 1)[-1] for url in self.urls]
         for name, url in zip(names, self.urls):
-            arcfile_name = self.download_file(temp_dir, name, url)
+            arcfile_name = self.download_file(
+                temp_dir, name, url, timeout=API_TIMEOUT
+            )
             tar.add(arcfile_name, arcname=name, filter=self.reset_tarinfo)
 
     def __repr__(self):

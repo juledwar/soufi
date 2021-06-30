@@ -105,7 +105,11 @@ class DiscoveredSource(metaclass=abc.ABCMeta):
         raise NotImplementedError  # pragma: no cover
 
     def download_file(
-        self, target_dir: str, target_name: str, url: str
+        self,
+        target_dir: str,
+        target_name: str,
+        url: str,
+        timeout: int = None,
     ) -> pathlib.Path:
         """Download a file from a URL and place it in a directory.
 
@@ -119,7 +123,7 @@ class DiscoveredSource(metaclass=abc.ABCMeta):
         NOTE: No decoding is performed on the file, it is saved as raw.
         """
         tmp_file_name = pathlib.Path(target_dir) / target_name
-        with requests.get(url, stream=True) as response:
+        with requests.get(url, stream=True, timeout=timeout) as response:
             with open(tmp_file_name, 'wb') as f:
                 # Setting chunk_size to None reads whatever size the
                 # chunk is as data chunks arrive. This avoids reading
