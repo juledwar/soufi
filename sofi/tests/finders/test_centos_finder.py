@@ -3,6 +3,7 @@ from unittest import mock
 
 import requests
 import testtools
+from testtools.matchers._basic import SameMembers
 
 from sofi import exceptions
 from sofi.finder import SourceType
@@ -11,12 +12,12 @@ from sofi.testing import base
 
 
 class BaseCentosTest(base.TestCase):
-    def make_finder(self, name=None, version=None):
+    def make_finder(self, name=None, version=None, **kwargs):
         if name is None:
             name = self.factory.make_string('name')
         if version is None:
             version = self.factory.make_string('version')
-        return centos.CentosFinder(name, version, SourceType.os)
+        return centos.CentosFinder(name, version, SourceType.os, **kwargs)
 
     def make_response(self, data, code):
         fake_response = mock.MagicMock()
@@ -62,6 +63,20 @@ class TestCentosFinder(BaseCentosTest):
         # Make sure this doesn't interfere with fast lookup tests.
         self.patch(centos.CentosFinder, '_repo_lookup').return_value = None
 
+    def test_source_dirs_setup_default(self):
+        finder = self.make_finder()
+        self.assertEqual(finder.source_dirs, finder.default_source_dirs)
+
+    def test_source_dirs_setup_optimal(self):
+        finder = self.make_finder(optimal_repos=True)
+        self.assertEqual(finder.source_dirs, finder.optimal_source_dirs)
+
+    def test_source_dirs_setup_custom(self):
+        repos = ['foo', 'bar', 'baz']
+        finder = self.make_finder(repos=repos)
+        expected_repos = [f"{r}/" for r in repos]
+        self.assertEqual(finder.source_dirs, expected_repos)
+
     def test__get_dirs(self):
         finder = self.make_finder()
         versions = ['4.5', '7.0', '7.1', '8.0']
@@ -75,52 +90,11 @@ class TestCentosFinder(BaseCentosTest):
             "https://vault.centos.org/centos/", timeout=30
         )
 
-    def test__get_path_pre_8_versions(self):
+    def test__get_path(self):
         finder = self.make_finder()
         data = self.make_index_page_content(finder.name, finder.version)
-        get = self.patch(requests, 'get')
-        get.return_value = self.make_response(data, requests.codes.ok)
-        dir_ = self.factory.make_string('7.0') + '/'
-        url = finder._get_path(dir_)
-
-        base_url = (
-            f'https://vault.centos.org/centos/{dir_}os/Source/SPackages/'
-        )
-        get.assert_called_once_with(base_url, timeout=30)
-        self.assertEqual(
-            f'{base_url}{finder.name}-{finder.version}.src.rpm', url
-        )
-
-    def test__get_path_8plus_versions(self):
-        finder = self.make_finder()
-        data = self.make_index_page_content(finder.name, finder.version)
-        get = self.patch(requests, 'get')
-        get.return_value = self.make_response(data, requests.codes.ok)
-        dir_ = self.factory.make_string('8.0') + '/'
-        url = finder._get_path(dir_)
-
-        base_url = (
-            f'https://vault.centos.org/centos/{dir_}BaseOS/Source/SPackages/'
-        )
-        get.assert_called_once_with(base_url, timeout=30)
-        self.assertEqual(
-            f'{base_url}{finder.name}-{finder.version}.src.rpm', url
-        )
-
-    def test__get_path_pre_6_2_versions(self):
-        finder = self.make_finder()
-        data = self.make_index_page_content(finder.name, finder.version)
-        get = self.patch(requests, 'get')
-        get.return_value = self.make_response(data, requests.codes.ok)
-        for dir_ in ('6.1/', '6.0/', '5.0/'):
-            url = finder._get_path(dir_)
-
-            base_url = (
-                f'https://vault.centos.org/centos/{dir_}os/Source/Packages/'
-            )
-            self.assertEqual(
-                f'{base_url}{finder.name}-{finder.version}.src.rpm', url
-            )
+        ref = finder._get_path(data)
+        self.assertEqual(f'{finder.name}-{finder.version}.src.rpm', ref)
 
     def test__get_path_returns_None_if_not_found(self):
         finder = self.make_finder()
@@ -134,15 +108,12 @@ class TestCentosFinder(BaseCentosTest):
 
     def test_find_raises_when_not_found(self):
         finder = self.make_finder()
+        url = self.factory.make_url()
         self.patch(finder, '_get_dirs').return_value = ['a']
+        self.patch(finder, '_get_source_dirs_content').return_value = [
+            (url, 'data')
+        ]
         self.patch(finder, '_get_path').return_value = None
-        with testtools.ExpectedException(exceptions.SourceNotFound):
-            finder.find()
-
-    def test_find_raises_when_index_dir_missing(self):
-        finder = self.make_finder()
-        self.patch(finder, '_get_dirs').return_value = ['a']
-        self.patch(finder, '_get_path').side_effect = exceptions.DownloadError
         with testtools.ExpectedException(exceptions.SourceNotFound):
             finder.find()
 
@@ -158,12 +129,16 @@ class TestCentosFinder(BaseCentosTest):
         finder = self.make_finder()
         dir_ = self.factory.make_string('dir')
         url = self.factory.make_url()
+        ref = self.factory.make_string()
         self.patch(finder, '_get_dirs').return_value = [dir_]
-        self.patch(finder, '_get_path').return_value = url
+        self.patch(finder, '_get_source_dirs_content').return_value = [
+            (url, 'data')
+        ]
+        self.patch(finder, '_get_path').return_value = ref
 
         disc_source = finder.find()
         self.assertIsInstance(disc_source, centos.CentosDiscoveredSource)
-        self.assertEqual([url], disc_source.urls)
+        self.assertEqual([f"{url}/{ref}"], disc_source.urls)
 
     def test_find_calls_get_repo_if_using_fallback_method(self):
         finder = self.make_finder(version='1.2.3.el8')
@@ -171,6 +146,73 @@ class TestCentosFinder(BaseCentosTest):
         url = self.factory.make_url()
         self.patch(finder, '_repo_lookup').return_value = url
         self.assertEqual(url, finder._find().urls[0])
+
+
+class TestGetDirsScenarios(BaseCentosTest):
+
+    scenarios = [
+        ('6.0', dict(version='6.0', append='.el6')),
+        ('7.0', dict(version='7.0', append='.el7')),
+        ('8.0', dict(version='8.0', append='.el8')),
+    ]
+
+    def test__get_dirs_ignores_dirs_based_on_package_version(self):
+        # If the version has got a string like 'el7' in it, then only look
+        # in dirs starting with a 7. Same for el8, etc.
+        finder = self.make_finder()
+        versions = ['6.0', '7.0', '8.0']
+        data = self.make_top_page_content(versions)
+        get = self.patch(requests, 'get')
+        get.return_value = self.make_response(data, requests.codes.ok)
+        finder.version += self.append
+        dirs = finder._get_dirs()
+        self.assertEqual([self.version], dirs)
+
+
+class TestGetSourceDirsContentScenarios(BaseCentosTest):
+
+    scenarios = [
+        ('post_v8', dict(release='8.0', packages_dir='SPackages')),
+        ('pre_v8', dict(release='7.1', packages_dir='SPackages')),
+        ('6.1', dict(release='6.1', packages_dir='Packages')),
+        ('6.0', dict(release='6.0', packages_dir='Packages')),
+        ('pre_6.0', dict(release='5.0', packages_dir='Packages')),
+    ]
+
+    def test_get_source_dirs_content(self):
+        finder = self.make_finder()
+        # Ensure irrelevant repo dirs are ignored with the 'bogus' one.
+        repos = ('os/', 'extras/', 'BaseOS/', 'bogus/')
+        expected_repos = ('os/', 'BaseOS/')
+        top_data = self.make_top_page_content(repos)
+        data = self.make_index_page_content(finder.name, finder.version)
+        get = self.patch(requests, 'get')
+        # Set up responses for the top index, and the packages indexes for each
+        # item in repos. The 'extras' repo is a broken one which will get a
+        # 404.
+        get.side_effect = (
+            self.make_response(top_data, requests.codes.ok),
+            self.make_response(data, requests.codes.ok),
+            self.make_response(b'', requests.codes.not_found),
+            self.make_response(data, requests.codes.ok),
+        )
+        dir_ = self.release + '/'
+        # Consume iterator.
+        yielded = [_ for _ in finder._get_source_dirs_content(dir_)]
+
+        # We expect it to spit out pairs of (url, data), where each url is the
+        # path to the eventual packages_dir that contains the package, and data
+        # is the content of the page at that location.
+        expected = [
+            (
+                f"{centos.VAULT}{dir_}{expected_os_dir}Source/"
+                f"{self.packages_dir}",
+                data,
+            )
+            # Ensure only returned source dirs are considered.
+            for expected_os_dir in expected_repos
+        ]
+        self.assertThat(yielded, SameMembers(expected))
 
 
 class TestCentosFinderRepoLookup(BaseCentosTest):
@@ -215,9 +257,10 @@ class TestCentosFinderRepoLookup(BaseCentosTest):
         )
         src_repo = self.make_repo(evr='')
         get_repo = self.patch(finder, '_get_repo')
-        get_repo.side_effect = (repo, src_repo)
+        num_source_dirs = len(finder.source_dirs)
+        get_repo.side_effect = (repo, src_repo) * num_source_dirs
         self.assertIsNone(finder._repo_lookup())
-        self.assertEqual(2, len(get_repo.mock_calls))
+        self.assertEqual(2 * num_source_dirs, len(get_repo.mock_calls))
 
     def test_returns_url_when_source_package_is_found(self):
         finder = self.make_finder()
@@ -229,8 +272,11 @@ class TestCentosFinderRepoLookup(BaseCentosTest):
         src_repo = self.make_repo(evr=finder.version, location=location)
         get_repo = self.patch(finder, '_get_repo')
         get_repo.side_effect = (repo, src_repo)
+        # Will match the first source_dirs entry as we made the fake
+        # repo match right away.
         self.assertEqual(
-            f'{centos.VAULT}/8/BaseOS/Source/{location}', finder._repo_lookup()
+            f'{centos.VAULT}8/{finder.source_dirs[0]}' f'Source/{location}',
+            finder._repo_lookup(),
         )
 
     def test__get_repo_returns_None_when_HTTPError(self):

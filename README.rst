@@ -2,11 +2,15 @@ SOFI
 ====
 
 SoFi (Source Finder) is a library that finds downloadable URLs for
-source packages, given the binary package name and version.
+source packages, given the binary package name and version. It will also
+create a compressed archive of multiple downloadable files, or save
+any existing downloadable archive.
 
 Currently supported finders are:
  - Debian OS packages
  - Ubuntu OS packages
+ - CentOS packages
+ - Alpine packages
  - NPM packages
  - Python sdists
 

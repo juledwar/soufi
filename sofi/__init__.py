@@ -48,12 +48,15 @@ class Finder:
         return cls.find(python_finder)
 
     @classmethod
-    def centos(cls, name, version):
+    def centos(cls, name, version, repos=None):
+        optimal = 'optimal' in repos
         centos_finder = finder.factory(
             "centos",
             name=name,
             version=version,
             s_type=finder.SourceType.os,
+            repos=repos,
+            optimal_repos=optimal,
         )
         return cls.find(centos_finder)
 
@@ -86,6 +89,13 @@ class Finder:
     show_default=True,
 )
 @click.option(
+    "--repo",
+    default=None,
+    multiple=True,
+    help="For CentOS, name of repo to use instead of defaults. "
+    "Use 'optimal' to use an extended optimal set. May be repeated.",
+)
+@click.option(
     "--output",
     "-o",
     help="Download the source archive and write to this file name",
@@ -102,7 +112,7 @@ class Finder:
     "{name}-{version}.{distro/type}.tar.[gz|xz] "
     "(This option takes precedence over -o/--output)",
 )
-def main(distro, name, version, pyindex, aports, output, auto_output):
+def main(distro, name, version, pyindex, aports, repo, output, auto_output):
     """Find and optionally download source files.
 
     Given a binary name and version, will find and print the URL(s) to the
@@ -130,6 +140,8 @@ def main(distro, name, version, pyindex, aports, output, auto_output):
             disc_source = func(name, version, pyindex=pyindex)
         elif distro == 'alpine':
             disc_source = func(name, version, aports_dir=aports)
+        elif distro == 'centos':
+            disc_source = func(name, version, repos=repo)
         else:
             disc_source = func(name, version)
     except exceptions.SourceNotFound:
