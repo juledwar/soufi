@@ -107,11 +107,13 @@ class AlpineFinder(finder.SourceFinder):
         all_sources = parsed[0].split()
         sources = []
         for source in all_sources:
-            if 'http://' not in source and 'https://' not in source:
+            for scheme in ('http://', 'https://', 'ftp://'):
+                if scheme in source:
+                    sources.append(source)
+                    break
+            else:
                 abspath = path.resolve().parent / source
                 sources.append(f"file://{abspath}")
-            else:
-                sources.append(source)
 
         # Subpackages can be of the form name:_function. This is where the
         # package is handled in a function in the APKBUILD. We can strip that

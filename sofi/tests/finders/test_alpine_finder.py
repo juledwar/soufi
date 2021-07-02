@@ -129,6 +129,15 @@ class TestAlpineFinder(base.TestCase):
         with testtools.ExpectedException(exceptions.DownloadError):
             finder.find()
 
+    def test_processes_ftp_sources(self):
+        # The gdbm package has a single ftp source in it.
+        finder = self.make_finder('gdbm', '1.13-1')
+        source = finder.find()
+        self.assertThat(
+            source.urls,
+            SameMembers(['ftp://ftp.nluug.nl/pub/gnu/gdbm/gdbm-1.13.tar.gz']),
+        )
+
 
 class TestAlpineDiscoveredSource(base.TestCase):
     def make_discovered_source(self, urls=None):
