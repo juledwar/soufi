@@ -7,10 +7,11 @@ from typing import Union
 
 from sofi import exceptions, finder
 
-# Shell snippet that will source an APKBUILD and spit out the vars that we
-# need.
 API_TIMEOUT = 30  # seconds
+# Shell snippet that will source an APKBUILD and spit out the vars that we
+# need. CARCH is set to work around a bug in 3.12.0 scripts.
 SH_GET_APK_VARS = """
+export CARCH=$(arch)
 . {file}
 echo $source
 echo $subpackages
