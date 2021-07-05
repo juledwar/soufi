@@ -1,6 +1,7 @@
 import os
 import tarfile
 import tempfile
+from io import BytesIO
 from pathlib import Path
 
 import fixtures
@@ -233,4 +234,23 @@ class TestAlpineDiscoveredSource(base.TestCase):
         # Test that the tar contains the file and the content.
         self.assert_tarfile_name_and_content(
             tar_file_name, custom_name, content
+        )
+
+    def test_download_ftp_file(self):
+        tmpdir = self.useFixture(fixtures.TempDir()).path
+        url = self.factory.make_url(scheme='ftp')
+        content = self.factory.make_bytes('content')
+        response = BytesIO(content)
+        urlopen = self.patch(alpine.urllib.request, 'urlopen')
+        urlopen.return_value = response
+
+        ads = alpine.AlpineDiscoveredSource(urls=[url])
+        _, tar_file_name = tempfile.mkstemp(dir=tmpdir)
+        with tarfile.open(name=tar_file_name, mode='w') as tar:
+            ads.populate_archive(tmpdir, tar)
+
+        # Test that the tar contains the file and the content.
+        expected_file_name = url.rsplit('/', 1)[-1]
+        self.assert_tarfile_name_and_content(
+            tar_file_name, expected_file_name, content
         )

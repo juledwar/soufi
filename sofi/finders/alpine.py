@@ -1,6 +1,10 @@
 import functools
 import glob
+import pathlib
+import shutil
 import subprocess  # nosec
+import urllib
+from contextlib import closing
 from pathlib import Path
 from shutil import copyfile
 from typing import Union
@@ -169,11 +173,23 @@ class AlpineDiscoveredSource(finder.DiscoveredSource):
                 _, srcfile = url.split('file://', 1)
                 arcfile_name = Path(temp_dir) / name
                 copyfile(srcfile, arcfile_name)
+            elif url.startswith('ftp://'):
+                # Requests cannot do FTP, fall back to urllib.
+                arcfile_name = self.download_ftp_file(temp_dir, name, url)
             else:
                 arcfile_name = self.download_file(
                     temp_dir, name, url, timeout=API_TIMEOUT
                 )
             tar.add(arcfile_name, arcname=name, filter=self.reset_tarinfo)
+
+    def download_ftp_file(self, temp_dir, name, url):
+        tmp_file_name = pathlib.Path(temp_dir) / name
+        with closing(
+            # B310 restricts permitted schemes, but we only call with ftp here.
+            urllib.request.urlopen(url, timeout=API_TIMEOUT)  # nosec B310
+        ) as ftp, open(tmp_file_name, 'wb') as f:
+            shutil.copyfileobj(ftp, f)
+        return tmp_file_name
 
     def __repr__(self) -> str:
         return "\n".join(self.urls)
