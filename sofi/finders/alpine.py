@@ -13,9 +13,11 @@ from sofi import exceptions, finder
 
 API_TIMEOUT = 30  # seconds
 # Shell snippet that will source an APKBUILD and spit out the vars that we
-# need. CARCH is set to work around a bug in 3.12.0 scripts.
+# need. CARCH is set to work around a bug in 3.12.0 scripts. CTARGET_ARCH
+# is needed for more complex scripts like `community/go`.
 SH_GET_APK_VARS = """
 export CARCH=$(arch)
+export CTARGET_ARCH=$(arch)
 . {file}
 echo $source
 echo $subpackages
@@ -100,8 +102,10 @@ class AlpineFinder(finder.SourceFinder):
         # TODO: run with sudo user, for security purposes.
         cmd = ['bash', '-c', SH_GET_APK_VARS.format(file=str(path))]
         try:
+            # This must run with a CWD of where the APKBUILD is located,
+            # since it can use relative paths to source other files.
             output = subprocess.run(  # nosec
-                cmd, capture_output=True, check=True
+                cmd, cwd=path.parent, capture_output=True, check=True
             )
             if output.stderr:
                 raise subprocess.SubprocessError(output.stderr)
