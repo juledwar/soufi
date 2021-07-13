@@ -1,4 +1,5 @@
 """A simple testing CLI to find and download source."""
+import os
 import shutil
 
 import click
@@ -70,6 +71,16 @@ class Finder:
             aports_dir=aports_dir,
         )
         return cls.find(alpine_finder)
+
+    @classmethod
+    def go(cls, name, version):
+        go_finder = finder.factory(
+            "go",
+            name=name,
+            version=version,
+            s_type=finder.SourceType.go,
+        )
+        return cls.find(go_finder)
 
 
 @click.command()
@@ -151,6 +162,7 @@ def main(distro, name, version, pyindex, aports, repo, output, auto_output):
     if auto_output is not False or output is not None:
         fname = output
         if auto_output:
+            name = name.replace(os.sep, '.')
             fname = f"{name}-{version}.{distro}{disc_source.archive_extension}"
         with disc_source.make_archive() as archive_fd, open(
             fname, 'wb'
