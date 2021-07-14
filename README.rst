@@ -13,11 +13,13 @@ Currently supported finders are:
  - Alpine packages
  - NPM packages
  - Python sdists
+ - Golang modules
 
 Future:
  - java
  - gem
- - Go
+
+If you want to download Alpine packages, you must have `git` installed.
 
 
 Quickstart

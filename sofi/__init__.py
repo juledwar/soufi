@@ -73,12 +73,13 @@ class Finder:
         return cls.find(alpine_finder)
 
     @classmethod
-    def go(cls, name, version):
+    def go(cls, name, version, goproxy):
         go_finder = finder.factory(
             "go",
             name=name,
             version=version,
             s_type=finder.SourceType.go,
+            goproxy=goproxy,
         )
         return cls.find(go_finder)
 
@@ -107,6 +108,12 @@ class Finder:
     "Use 'optimal' to use an extended optimal set. May be repeated.",
 )
 @click.option(
+    "--goproxy",
+    default="https://proxy.golang.org/",
+    help="GOPROXY to use when downloading Golang module source",
+    show_default=True,
+)
+@click.option(
     "--output",
     "-o",
     help="Download the source archive and write to this file name",
@@ -123,7 +130,9 @@ class Finder:
     "{name}-{version}.{distro/type}.tar.[gz|xz] "
     "(This option takes precedence over -o/--output)",
 )
-def main(distro, name, version, pyindex, aports, repo, output, auto_output):
+def main(
+    distro, name, version, pyindex, aports, repo, goproxy, output, auto_output
+):
     """Find and optionally download source files.
 
     Given a binary name and version, will find and print the URL(s) to the
@@ -131,11 +140,11 @@ def main(distro, name, version, pyindex, aports, repo, output, auto_output):
 
     If the --output option is present, the URLs are all downloaded and
     combined into a LZMA-compressed tar file and written to the file
-    name specifed.  If the original source is a tarball then that tarball is
-    used instead.
+    name specifed.  If the original source is already an archive then that
+    archive is used instead.
 
-    The only sources currently supported are 'debian', 'ubuntu',
-    'python' and 'npm', one of which must be specified as the DISTRO
+    The sources currently supported are 'debian', 'ubuntu', 'centos', 'alpine',
+    'go', 'python' and 'npm', one of which must be specified as the DISTRO
     argument.
     """
     try:
@@ -153,6 +162,8 @@ def main(distro, name, version, pyindex, aports, repo, output, auto_output):
             disc_source = func(name, version, aports_dir=aports)
         elif distro == 'centos':
             disc_source = func(name, version, repos=repo)
+        elif distro == 'go':
+            disc_source = func(name, version, goproxy=goproxy)
         else:
             disc_source = func(name, version)
     except exceptions.SourceNotFound:
