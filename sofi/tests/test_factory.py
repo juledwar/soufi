@@ -22,7 +22,14 @@ class TestFinderFactory(base.TestCase):
         finder_mock.assert_called_once_with(name, version, SourceType.os)
 
     def test_supported_types(self):
-        self.assertEqual(
-            sorted(factory.supported_types),
-            ['alpine', 'centos', 'debian', 'go', 'npm', 'python', 'ubuntu'],
-        )
+        expected = [
+            'alpine',
+            'centos',
+            'debian',
+            'go',
+            'java',
+            'npm',
+            'python',
+            'ubuntu',
+        ]
+        self.assertListEqual(expected, factory.supported_types)

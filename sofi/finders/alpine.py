@@ -16,6 +16,9 @@ API_TIMEOUT = 30  # seconds
 # need. CARCH is set to work around a bug in 3.12.0 scripts. CTARGET_ARCH
 # is needed for more complex scripts like `community/go`.
 SH_GET_APK_VARS = """
+function die () {{
+:
+}}
 export CARCH=$(arch)
 export CTARGET_ARCH=$(arch)
 . {file}

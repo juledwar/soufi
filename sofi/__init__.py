@@ -83,6 +83,16 @@ class Finder:
         )
         return cls.find(go_finder)
 
+    @classmethod
+    def java(cls, name, version):
+        java_finder = finder.factory(
+            "java",
+            name=name,
+            version=version,
+            s_type=finder.SourceType.java,
+        )
+        return cls.find(java_finder)
+
 
 @click.command()
 @click.argument("distro")
@@ -144,8 +154,8 @@ def main(
     archive is used instead.
 
     The sources currently supported are 'debian', 'ubuntu', 'centos', 'alpine',
-    'go', 'python' and 'npm', one of which must be specified as the DISTRO
-    argument.
+    'java', 'go', 'python' and 'npm', one of which must be specified as the
+    DISTRO argument.
     """
     try:
         func = getattr(Finder, distro)
