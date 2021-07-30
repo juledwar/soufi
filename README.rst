@@ -1,7 +1,7 @@
 SOUFI
 =====
 
-SouFi (Source Finder) is a library that finds downloadable URLs for
+Soufi (Source Finder) is a library that finds downloadable URLs for
 source packages, given the binary package name and version. It will also
 create a compressed archive of multiple downloadable files, or save
 any existing downloadable archive.
@@ -62,3 +62,10 @@ Using the API:
     print(source)
     with source.make_archive() as archive, open('zlib.tar.xz', 'wb') as local:
         shutil.filecopyobj(archive, local)
+
+
+Copyright
+---------
+
+Soufi is copyright (c) 2021 Cisco Systems, Inc. and its affiliates
+All rights reserved.

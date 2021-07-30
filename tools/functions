@@ -1,3 +1,6 @@
+# Copyright (c) 2021 Cisco Systems, Inc. and its affiliates
+# All rights reserved.
+
 export ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd -P)"
 export PYTHON=$(which python3.8)
 export VENV=${ROOT}/venv-soufi

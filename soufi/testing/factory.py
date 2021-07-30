@@ -1,3 +1,6 @@
+# Copyright (c) 2021 Cisco Systems, Inc. and its affiliates
+# All rights reserved.
+
 """Factory functions and classes for tests."""
 
 import hashlib

@@ -1,3 +1,6 @@
+# Copyright (c) 2021 Cisco Systems, Inc. and its affiliates
+# All rights reserved.
+
 import pathlib
 import shutil
 import tarfile

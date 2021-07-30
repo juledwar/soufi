@@ -1,3 +1,6 @@
+# Copyright (c) 2021 Cisco Systems, Inc. and its affiliates
+# All rights reserved.
+
 """A simple testing CLI to find and download source."""
 import os
 import shutil

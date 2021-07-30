@@ -1,3 +1,6 @@
+# Copyright (c) 2021 Cisco Systems, Inc. and its affiliates
+# All rights reserved.
+
 from unittest.mock import MagicMock
 
 from soufi.finder import SourceType, factory
