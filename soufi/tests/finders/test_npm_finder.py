@@ -3,10 +3,10 @@ from unittest import mock
 import requests
 import testtools
 
-from sofi import exceptions
-from sofi.finder import SourceType
-from sofi.finders import npm
-from sofi.testing import base
+from soufi import exceptions
+from soufi.finder import SourceType
+from soufi.finders import npm
+from soufi.testing import base
 
 
 class TestNPMFinder(base.TestCase):

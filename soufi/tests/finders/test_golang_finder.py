@@ -3,10 +3,10 @@ from unittest import mock
 import requests
 from testtools.matchers._basic import SameMembers
 
-from sofi import exceptions
-from sofi.finder import SourceType
-from sofi.finders import golang
-from sofi.testing import base
+from soufi import exceptions
+from soufi.finder import SourceType
+from soufi.finders import golang
+from soufi.testing import base
 
 
 class TestGolangFinder(base.TestCase):

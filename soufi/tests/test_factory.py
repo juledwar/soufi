@@ -1,8 +1,8 @@
 from unittest.mock import MagicMock
 
-from sofi.finder import SourceType, factory
-from sofi.finders import ubuntu
-from sofi.testing import base
+from soufi.finder import SourceType, factory
+from soufi.finders import ubuntu
+from soufi.testing import base
 
 
 class TestFinderFactory(base.TestCase):

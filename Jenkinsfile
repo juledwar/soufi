@@ -46,7 +46,7 @@ pipeline {
             steps {
                 buildUtils('editBuildResult', [ comment: 'Publishing python package' ])
                 withCredentials([[$class: 'UsernamePasswordMultiBinding',
-                        credentialsId: 'CPSG-sofi-devpi-premerge',
+                        credentialsId: 'CPSG-soufi-devpi-premerge',
                         usernameVariable: 'USERNAME',
                         passwordVariable: 'PASSWORD']]) {
                     script {

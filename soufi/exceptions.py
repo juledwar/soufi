@@ -1,4 +1,4 @@
-"""All exceptions raised by Sofi."""
+"""All exceptions raised by Soufi."""
 
 
 class SourceNotFound(Exception):

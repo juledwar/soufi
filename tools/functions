@@ -1,6 +1,6 @@
 export ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd -P)"
 export PYTHON=$(which python3.8)
-export VENV=${ROOT}/venv-sofi
+export VENV=${ROOT}/venv-soufi
 
 # Figure out our OS
 if [ -f /etc/os-release ]; then
@@ -93,7 +93,7 @@ function get_package_version() {
 }
 
 function clean_venv() {
-    rm -rf ${ROOT}/venv-sofi/
+    rm -rf ${ROOT}/venv-soufi/
 }
 
 function clean_python_dist() {
@@ -101,7 +101,7 @@ function clean_python_dist() {
 }
 
 function clean_python_packaging_files() {
-    rm -rf ${ROOT}/{AUTHORS,ChangeLog,sofi.egg-info/,.eggs}
+    rm -rf ${ROOT}/{AUTHORS,ChangeLog,soufi.egg-info/,.eggs}
 }
 
 function clean_python_all() {

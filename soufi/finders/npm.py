@@ -1,6 +1,6 @@
 import requests
 
-from sofi import exceptions, finder
+from soufi import exceptions, finder
 
 NPM_REGISTRY = 'https://registry.npmjs.org/'
 API_TIMEOUT = 30  # seconds

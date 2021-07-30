@@ -1,6 +1,6 @@
 import requests
 
-from sofi import exceptions, finder
+from soufi import exceptions, finder
 
 DEFAULT_INDEX = 'https://pypi.org/pypi/'
 API_TIMEOUT = 30  # seconds

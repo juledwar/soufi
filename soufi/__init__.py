@@ -4,7 +4,7 @@ import shutil
 
 import click
 
-from sofi import exceptions, finder
+from soufi import exceptions, finder
 
 
 class Finder:

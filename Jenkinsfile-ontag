@@ -20,7 +20,7 @@ pipeline {
         stage('Publish release package to devpi') {
           steps {
             withCredentials([[$class: 'UsernamePasswordMultiBinding',
-                              credentialsId: 'CPSG-sofi-devpi-postmerge',
+                              credentialsId: 'CPSG-soufi-devpi-postmerge',
                               usernameVariable: 'USERNAME',
                               passwordVariable: 'PASSWORD']]) {
                     sh(script: '''

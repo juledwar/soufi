@@ -3,10 +3,10 @@ from unittest import mock
 import requests
 import testtools
 
-from sofi import exceptions
-from sofi.finder import SourceType
-from sofi.finders import python
-from sofi.testing import base
+from soufi import exceptions
+from soufi.finder import SourceType
+from soufi.finders import python
+from soufi.testing import base
 
 
 class TestPythonFinder(base.TestCase):

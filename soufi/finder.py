@@ -209,10 +209,10 @@ class FinderFactory:
     def __init__(self):
         self._finders = dict()
         # TODO: Make this path configurable.
-        import sofi.finders
+        import soufi.finders
 
-        for _, module, _ in pkgutil.iter_modules(sofi.finders.__path__):
-            mod = importlib.import_module(f"sofi.finders.{module}")
+        for _, module, _ in pkgutil.iter_modules(soufi.finders.__path__):
+            mod = importlib.import_module(f"soufi.finders.{module}")
             for _name, obj in mod.__dict__.items():
                 if isclass(obj) and issubclass(obj, SourceFinder):
                     # Add class object to our dict.

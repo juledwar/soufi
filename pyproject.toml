@@ -14,16 +14,16 @@ exclude = '''
         | dist
         | build
         | _build
-        | sofi-venv
+        | soufi-venv
     )/
 )
 '''
 
 [tool.coverage.run]
 omit = [
-    '*sofi/tests*',
-    '*sofi/testing*',
-    'sofi/__init__.py',
+    '*soufi/tests*',
+    '*soufi/testing*',
+    'soufi/__init__.py',
 ]
 
 [tool.isort]

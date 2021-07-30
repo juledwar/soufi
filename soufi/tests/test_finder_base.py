@@ -10,8 +10,8 @@ import testtools
 from testtools.matchers import DirExists, Equals, FileContains, Not
 from testtools.matchers._basic import SameMembers
 
-from sofi.finder import DiscoveredSource, SourceFinder, SourceType
-from sofi.testing import base
+from soufi.finder import DiscoveredSource, SourceFinder, SourceType
+from soufi.testing import base
 
 
 class TestSourceFinderBase(base.TestCase):

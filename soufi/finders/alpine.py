@@ -9,7 +9,7 @@ from pathlib import Path
 from shutil import copyfile
 from typing import Union
 
-from sofi import exceptions, finder
+from soufi import exceptions, finder
 
 API_TIMEOUT = 30  # seconds
 # Shell snippet that will source an APKBUILD and spit out the vars that we

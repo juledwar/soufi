@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import testtools
 
-from sofi.testing import factory
+from soufi.testing import factory
 
 
 # TODO(nic): this needs to handle "unbalanced" parameter sets; if all

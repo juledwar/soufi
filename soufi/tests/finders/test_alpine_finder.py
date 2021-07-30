@@ -9,10 +9,10 @@ import testtools
 from testtools.matchers import Equals
 from testtools.matchers._basic import SameMembers
 
-from sofi import exceptions, testing
-from sofi.finder import SourceType
-from sofi.finders import alpine
-from sofi.testing import base
+from soufi import exceptions, testing
+from soufi.finder import SourceType
+from soufi.finders import alpine
+from soufi.testing import base
 
 
 class TestAlpineFinder(base.TestCase):

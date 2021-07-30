@@ -3,10 +3,10 @@ from unittest import mock
 import requests
 import testtools
 
-from sofi import exceptions
-from sofi.finder import SourceType
-from sofi.finders import java
-from sofi.testing import base
+from soufi import exceptions
+from soufi.finder import SourceType
+from soufi.finders import java
+from soufi.testing import base
 
 
 class TestJavaFinder(base.TestCase):

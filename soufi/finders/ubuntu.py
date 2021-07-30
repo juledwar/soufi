@@ -3,7 +3,7 @@ import pathlib
 
 from launchpadlib.launchpad import Launchpad
 
-from sofi import exceptions, finder
+from soufi import exceptions, finder
 
 API_TIMEOUT = 30  # seconds
 
@@ -31,7 +31,7 @@ class UbuntuFinder(finder.SourceFinder):
         """Retrieve, and cache, the LP distro main archive object."""
         cachedir = pathlib.Path.home().joinpath(".launchpadlib", "cache")
         lp = Launchpad.login_anonymously(
-            "sofi",
+            "soufi",
             "production",
             cachedir,
             version="devel",

@@ -9,7 +9,7 @@ import repomd
 import requests
 from lxml import html  # nosec
 
-from sofi import exceptions, finder
+from soufi import exceptions, finder
 
 VAULT = "https://vault.centos.org/centos/"
 TIMEOUT = 30  # seconds

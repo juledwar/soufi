@@ -5,10 +5,10 @@ import requests
 import testtools
 from testtools.matchers._basic import SameMembers
 
-from sofi import exceptions
-from sofi.finder import SourceType
-from sofi.finders import centos
-from sofi.testing import base
+from soufi import exceptions
+from soufi.finder import SourceType
+from soufi.finders import centos
+from soufi.testing import base
 
 
 class BaseCentosTest(base.TestCase):

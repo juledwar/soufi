@@ -1,6 +1,6 @@
 import requests
 
-from sofi import exceptions, finder
+from soufi import exceptions, finder
 
 MAVEN_SEARCH_URL = 'https://search.maven.org/solrsearch/select'
 MAVEN_REPO_URL = 'https://search.maven.org/remotecontent'

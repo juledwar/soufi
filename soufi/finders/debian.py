@@ -1,6 +1,6 @@
 import requests
 
-from sofi import exceptions, finder
+from soufi import exceptions, finder
 
 SNAPSHOT_API = "https://snapshot.debian.org/"
 API_TIMEOUT = 30  # seconds

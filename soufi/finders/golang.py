@@ -1,6 +1,6 @@
 import requests
 
-from sofi import exceptions, finder
+from soufi import exceptions, finder
 
 PUBLIC_PROXY = 'https://proxy.golang.org/'
 PROXY_TIMEOUT = 30  # seconds

@@ -8,10 +8,10 @@ import testtools
 from testtools.matchers import Equals
 from testtools.matchers._basic import SameMembers
 
-from sofi import exceptions
-from sofi.finder import SourceType
-from sofi.finders import ubuntu
-from sofi.testing import base
+from soufi import exceptions
+from soufi.finder import SourceType
+from soufi.finders import ubuntu
+from soufi.testing import base
 
 
 class TestUbuntuFinder(base.TestCase):
@@ -31,7 +31,7 @@ class TestUbuntuFinder(base.TestCase):
         self.make_finder()
         self.make_finder()
         login.assert_called_once_with(
-            "sofi", "production", mock.ANY, version="devel", timeout=30
+            "soufi", "production", mock.ANY, version="devel", timeout=30
         )
 
     def test_get_archive(self):

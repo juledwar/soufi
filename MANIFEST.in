@@ -1,5 +1,5 @@
 include README.md
 include requirements.txt
-recursive-include sofi *.py
-prune sofi/tests
-prune sofi/testing
+recursive-include soufi *.py
+prune soufi/tests
+prune soufi/testing

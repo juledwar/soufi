@@ -1,4 +1,4 @@
-sofi.conf
+soufi.conf
 tags
 .testrepository
 .stestr
@@ -56,7 +56,7 @@ nosetests.xml
 coverage.xml
 *,cover
 cover/
-venv-sofi/
+venv-soufi/
 
 # Translations
 *.mo

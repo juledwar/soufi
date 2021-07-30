@@ -9,10 +9,10 @@ import testtools
 from testtools.matchers import Equals
 from testtools.matchers._basic import SameMembers
 
-from sofi import exceptions
-from sofi.finder import SourceType
-from sofi.finders import debian
-from sofi.testing import base
+from soufi import exceptions
+from soufi.finder import SourceType
+from soufi.finders import debian
+from soufi.testing import base
 
 
 class TestDebianFinder(base.TestCase):
