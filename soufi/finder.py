@@ -14,6 +14,8 @@ from typing import BinaryIO, ContextManager, Iterable, Union
 
 import requests
 
+from soufi import exceptions
+
 
 @enum.unique
 class SourceType(enum.Enum):
@@ -123,10 +125,16 @@ class DiscoveredSource(metaclass=abc.ABCMeta):
 
         Returns the Path object to the new file.
 
+        Raises a DownloadError upon problems retrieving the remote file.
+
         NOTE: No decoding is performed on the file, it is saved as raw.
         """
         tmp_file_name = pathlib.Path(target_dir) / target_name
         with requests.get(url, stream=True, timeout=timeout) as response:
+            try:
+                response.raise_for_status()
+            except requests.exceptions.HTTPError as e:
+                raise exceptions.DownloadError(e)
             with open(tmp_file_name, 'wb') as f:
                 # Setting chunk_size to None reads whatever size the
                 # chunk is as data chunks arrive. This avoids reading

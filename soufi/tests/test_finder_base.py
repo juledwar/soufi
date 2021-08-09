@@ -13,6 +13,7 @@ import testtools
 from testtools.matchers import DirExists, Equals, FileContains, Not
 from testtools.matchers._basic import SameMembers
 
+from soufi import exceptions
 from soufi.finder import DiscoveredSource, SourceFinder, SourceType
 from soufi.testing import base
 
@@ -129,6 +130,7 @@ class TestDiscoveredSourceBase(base.TestCase):
         url = self.factory.make_url()
         content = self.factory.make_bytes('content')
         response = requests.Response()
+        response.status_code = requests.codes.ok
         response.raw = BytesIO(content)
         get = self.patch(requests, 'get')
         get.return_value = response
@@ -145,6 +147,29 @@ class TestDiscoveredSourceBase(base.TestCase):
         # strings...damn.
         with open(returned_path, 'rb') as fd:
             self.assertThat(fd.read(), Equals(content))
+
+    def test_download_file_raises_on_http_errors(self):
+        tmpdir = self.useFixture(fixtures.TempDir()).path
+        target = self.factory.make_string('filename')
+        url = self.factory.make_url()
+        response = requests.Response()
+        response.status_code = requests.codes.not_found
+        response.raw = BytesIO(b'')
+        get = self.patch(requests, 'get')
+        get.return_value = response
+
+        tds = self.TestDiscoveredSource(urls=[])
+        self.assertRaises(
+            exceptions.DownloadError,
+            tds.download_file,
+            tmpdir,
+            target,
+            url,
+        )
+
+        expected_path = pathlib.Path(tmpdir) / target
+        get.assert_called_once_with(url, stream=True, timeout=None)
+        self.assertFalse(expected_path.exists())
 
     def test_filter_tarinfo(self):
         tarinfo = tarfile.TarInfo()

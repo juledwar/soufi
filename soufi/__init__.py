@@ -97,6 +97,16 @@ class Finder:
         return cls.find(java_finder)
 
 
+def make_archive_from_discovery_source(disc_src, fname):
+    try:
+        with disc_src.make_archive() as in_fd, open(fname, 'wb') as out_fd:
+            # copyfileobj copies in chunks, so as not to exhaust memory.
+            shutil.copyfileobj(in_fd, out_fd)
+    except exceptions.DownloadError as e:
+        click.echo(str(e))
+        click.get_current_context().exit(255)
+
+
 @click.command()
 @click.argument("distro")
 @click.argument("name")
@@ -188,11 +198,7 @@ def main(
         if auto_output:
             name = name.replace(os.sep, '.')
             fname = f"{name}-{version}.{distro}{disc_source.archive_extension}"
-        with disc_source.make_archive() as archive_fd, open(
-            fname, 'wb'
-        ) as out_fd:
-            # copyfileobj copies in chunks, so as not to exhaust memory.
-            shutil.copyfileobj(archive_fd, out_fd)
+        make_archive_from_discovery_source(disc_source, fname)
 
 
 if __name__ == "__main__":
