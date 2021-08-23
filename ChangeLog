@@ -1,9 +1,15 @@
 CHANGES
 =======
 
+2021.08.23
+----------
+
+* Fix setup.cfg URL
+
 2021.08.22
 ----------
 
+* Prepare for pypi package publication
 * Fix metadata in setup.py
 * Clarify Python version requirements in the readme
 * Remove Python 3.6 from workflow matrix
