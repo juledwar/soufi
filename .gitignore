@@ -29,8 +29,6 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
-AUTHORS
-ChangeLog
 .docker/
 .prep
 RELEASENOTES.txt
