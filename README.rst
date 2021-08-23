@@ -19,6 +19,12 @@ Currently supported finders are:
 If you want to download Alpine packages, you must have `git` installed.
 
 
+Requirements
+------------
+Soufi is currently tested on Python versions 3.7, 3.8 and 3.9. It is
+known not to work on 3.6.
+
+
 Quickstart
 ----------
 
