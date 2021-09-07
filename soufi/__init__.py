@@ -96,6 +96,16 @@ class Finder:
         )
         return cls.find(java_finder)
 
+    @classmethod
+    def gem(cls, name, version):
+        gem_finder = finder.factory(
+            "gem",
+            name=name,
+            version=version,
+            s_type=finder.SourceType.gem,
+        )
+        return cls.find(gem_finder)
+
 
 def make_archive_from_discovery_source(disc_src, fname):
     try:

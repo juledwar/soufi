@@ -29,6 +29,7 @@ class TestFinderFactory(base.TestCase):
             'alpine',
             'centos',
             'debian',
+            'gem',
             'go',
             'java',
             'npm',
