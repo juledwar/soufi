@@ -15,6 +15,7 @@ Currently supported finders are:
  - Python sdists
  - Golang modules
  - Java JARs
+ - Ruby Gems
 
 If you want to download Alpine packages, you must have `git` installed.
 
