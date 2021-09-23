@@ -3,16 +3,20 @@
 
 import functools
 import glob
+import hashlib
 import pathlib
 import shutil
 import subprocess  # nosec
 import urllib
+import warnings
 from contextlib import closing
 from pathlib import Path
 from shutil import copyfile
-from typing import Union
+from typing import Iterable, Union
 
 from soufi import exceptions, finder
+
+warnings.formatwarning = lambda msg, *x, **y: f'WARNING: {msg}\n'
 
 API_TIMEOUT = 30  # seconds
 # Shell snippet that will source an APKBUILD and spit out the vars that we
@@ -30,6 +34,7 @@ echo $subpackages
 echo $provides
 echo $pkgver
 echo $pkgrel
+echo $sha512sums
 """
 
 
@@ -47,7 +52,7 @@ class AlpineFinder(finder.SourceFinder):
     The caller therefore must know in which release branch the package is
     likely to reside as it is impossible to know this information outside
     the context of an actual distro image.  This Finder *could* iterate
-    over every release, but this is infefficient. There's nothing
+    over every release, but this is inefficient. There's nothing
     stopping the caller doing this though, as required.
     """
 
@@ -134,12 +139,14 @@ class AlpineFinder(finder.SourceFinder):
         # package is handled in a function in the APKBUILD. We can strip that
         # out for the purposes of matching subpackages.
         subpackages = [item.split(':', 1)[0] for item in parsed[1].split()]
+        sha512sums = lambda x: dict(zip(x[1::2], x[::2]))  # noqa: E731
         return {
             'source': sources,
             'subpackages': subpackages,
             'provides': parsed[2].split(),
             'pkgver': parsed[3],
             'pkgrel': parsed[4],
+            'sha512sums': sha512sums(parsed[5].split()),
         }
 
     def _find(self):
@@ -157,12 +164,18 @@ class AlpineFinder(finder.SourceFinder):
         else:
             expect_version = self.version
         if version == expect_version:
-            return AlpineDiscoveredSource(apkbuild['source'])
+            return AlpineDiscoveredSource(
+                apkbuild['source'], apkbuild['sha512sums']
+            )
         raise exceptions.SourceNotFound()
 
 
 class AlpineDiscoveredSource(finder.DiscoveredSource):
     """A discovered Alpine source package."""
+
+    def __init__(self, urls: Iterable[str], sha512sums=None):
+        self.sha512sums = sha512sums or {}
+        super().__init__(urls)
 
     def populate_archive(self, temp_dir, tar):
         # The file name is the last segment of the URL path, unless the source
@@ -190,7 +203,27 @@ class AlpineDiscoveredSource(finder.DiscoveredSource):
                 arcfile_name = self.download_file(
                     temp_dir, name, url, timeout=API_TIMEOUT
                 )
+            if name in self.sha512sums:
+                self.verify_sha512sum(arcfile_name, self.sha512sums[name])
+            else:
+                warnings.warn(
+                    f'No checksum for source file {name}, cannot verify'
+                )
             tar.add(arcfile_name, arcname=name, filter=self.reset_tarinfo)
+
+    def verify_sha512sum(self, filename, sha512sum):
+        file_hash = hashlib.sha512()
+        with open(filename, 'rb') as f:
+            chunk = f.read(0x10000)
+            while chunk:
+                file_hash.update(chunk)
+                chunk = f.read(0x10000)
+        if file_hash.hexdigest() == sha512sum:
+            return True
+        raise exceptions.DownloadError(
+            f'checksum of dowmloaded file {filename} does not match: '
+            f'{file_hash.hexdigest()} != {sha512sum}'
+        )
 
     def download_ftp_file(self, temp_dir, name, url):
         tmp_file_name = pathlib.Path(temp_dir) / name
