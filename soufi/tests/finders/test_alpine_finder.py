@@ -4,6 +4,8 @@
 import os
 import tarfile
 import tempfile
+import warnings
+from hashlib import sha512
 from io import BytesIO
 from pathlib import Path
 
@@ -180,7 +182,8 @@ class TestAlpineDiscoveredSource(base.TestCase):
 
         # Patch out download_file to return the fake file:
         url = self.factory.make_url()
-        ads = alpine.AlpineDiscoveredSource([url])
+        sha512sum = {os.path.basename(url): sha512(content).hexdigest()}
+        ads = alpine.AlpineDiscoveredSource([url], sha512sums=sha512sum)
         download_file = self.patch(ads, 'download_file')
         download_file.return_value = Path(fake_file)
 
@@ -195,13 +198,61 @@ class TestAlpineDiscoveredSource(base.TestCase):
             tar_file_name, expected_file_name, content
         )
 
+    def test_populate_archive_warns_on_missing_checksum(self):
+        tmpdir = self.useFixture(fixtures.TempDir()).path
+        content = self.factory.make_bytes('content')
+        fake_file = self.make_file_with_content(tmpdir, content)
+        warn = self.patch(warnings, 'warn')
+
+        # Patch out download_file to return the fake file:
+        url = self.factory.make_url()
+        pathname = os.path.basename(url)
+        ads = alpine.AlpineDiscoveredSource([url])
+        download_file = self.patch(ads, 'download_file')
+        download_file.return_value = Path(fake_file)
+
+        # Make the tar file and populate it:
+        _, tar_file_name = tempfile.mkstemp(dir=tmpdir)
+        with tarfile.open(name=tar_file_name, mode='w') as tar:
+            ads.populate_archive(tmpdir, tar)
+
+        # Test that the tar contains the file and the content.
+        expected_file_name = url.rsplit('/', 1)[-1]
+        self.assert_tarfile_name_and_content(
+            tar_file_name, expected_file_name, content
+        )
+        warn.assert_called_once_with(
+            f'No checksum for source file {pathname}, cannot verify'
+        )
+
+    def test_populate_archive_raises_on_mismatched_checksum(self):
+        tmpdir = self.useFixture(fixtures.TempDir()).path
+        content = self.factory.make_bytes('content')
+        fake_file = self.make_file_with_content(tmpdir, content)
+
+        # Patch out download_file to return the fake file:
+        url = self.factory.make_url()
+        pathname = os.path.basename(url)
+        sha512sum = {pathname: 'invalid'}
+        ads = alpine.AlpineDiscoveredSource([url], sha512sums=sha512sum)
+        download_file = self.patch(ads, 'download_file')
+        download_file.return_value = Path(fake_file)
+
+        # Make the tar file and populate it:
+        _, tar_file_name = tempfile.mkstemp(dir=tmpdir)
+        with tarfile.open(name=tar_file_name, mode='w') as tar:
+            self.assertRaises(
+                exceptions.DownloadError, ads.populate_archive, tmpdir, tar
+            )
+
     def test_populate_archive_with_file_scheme(self):
         tmpdir = self.useFixture(fixtures.TempDir()).path
         content = self.factory.make_bytes('content')
         fake_file = self.make_file_with_content(tmpdir, content)
 
         url = "file://" + str(fake_file)
-        ads = alpine.AlpineDiscoveredSource([url])
+        sha512sum = {os.path.basename(url): sha512(content).hexdigest()}
+        ads = alpine.AlpineDiscoveredSource([url], sha512sums=sha512sum)
         download_file = self.patch(ads, 'download_file')
         download_file.return_value = Path(fake_file)
 
@@ -225,7 +276,8 @@ class TestAlpineDiscoveredSource(base.TestCase):
         # Patch out download_file to return the fake file:
         custom_name = self.factory.make_string("name")
         url = f"{custom_name}::{self.factory.make_url()}"
-        ads = alpine.AlpineDiscoveredSource([url])
+        sha512sum = {custom_name: sha512(content).hexdigest()}
+        ads = alpine.AlpineDiscoveredSource([url], sha512sums=sha512sum)
         download_file = self.patch(ads, 'download_file')
         download_file.return_value = Path(fake_file)
 
@@ -246,8 +298,9 @@ class TestAlpineDiscoveredSource(base.TestCase):
         response = BytesIO(content)
         urlopen = self.patch(alpine.urllib.request, 'urlopen')
         urlopen.return_value = response
+        sha512sum = {os.path.basename(url): sha512(content).hexdigest()}
 
-        ads = alpine.AlpineDiscoveredSource(urls=[url])
+        ads = alpine.AlpineDiscoveredSource(urls=[url], sha512sums=sha512sum)
         _, tar_file_name = tempfile.mkstemp(dir=tmpdir)
         with tarfile.open(name=tar_file_name, mode='w') as tar:
             ads.populate_archive(tmpdir, tar)
