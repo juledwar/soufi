@@ -139,14 +139,18 @@ class AlpineFinder(finder.SourceFinder):
         # package is handled in a function in the APKBUILD. We can strip that
         # out for the purposes of matching subpackages.
         subpackages = [item.split(':', 1)[0] for item in parsed[1].split()]
-        sha512sums = lambda x: dict(zip(x[1::2], x[::2]))  # noqa: E731
+        # SHA-512 checksums for source archives are provided as a big flat list
+        # of the form (DIGEST, NAME, [...])  Turn it into a mapping of
+        # name->digest for validation lookups later.
+        sha512sums = parsed[5].split()
+        sha512sums_map = dict(zip(sha512sums[1::2], sha512sums[::2]))
         return {
             'source': sources,
             'subpackages': subpackages,
             'provides': parsed[2].split(),
             'pkgver': parsed[3],
             'pkgrel': parsed[4],
-            'sha512sums': sha512sums(parsed[5].split()),
+            'sha512sums': sha512sums_map,
         }
 
     def _find(self):
@@ -212,8 +216,16 @@ class AlpineDiscoveredSource(finder.DiscoveredSource):
             tar.add(arcfile_name, arcname=name, filter=self.reset_tarinfo)
 
     def verify_sha512sum(self, filename, sha512sum):
+        """Verify that the contents of filename match the provided sha512sum.
+
+        :return: True on a checksum match.
+        :raises: exceptions.DownloadError on a checksum mismatch.
+        :raises: IOError on any problem reading the input file.
+        """
         file_hash = hashlib.sha512()
         with open(filename, 'rb') as f:
+            # TODO(nic): this loop can be simplified with a walrus operator
+            #  if/when Python 3.7 support is dropped
             chunk = f.read(0x10000)
             while chunk:
                 file_hash.update(chunk)
