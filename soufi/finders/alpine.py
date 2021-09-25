@@ -143,7 +143,8 @@ class AlpineFinder(finder.SourceFinder):
         # of the form (DIGEST, NAME, [...])  Turn it into a mapping of
         # name->digest for validation lookups later.
         sha512sums = parsed[5].split()
-        sha512sums_map = dict(zip(sha512sums[1::2], sha512sums[::2]))
+        digests, filenames = sha512sums[0::2], sha512sums[1::2]
+        sha512sums_map = dict(zip(filenames, digests))
         return {
             'source': sources,
             'subpackages': subpackages,
@@ -169,7 +170,7 @@ class AlpineFinder(finder.SourceFinder):
             expect_version = self.version
         if version == expect_version:
             return AlpineDiscoveredSource(
-                apkbuild['source'], apkbuild['sha512sums']
+                apkbuild['source'], sha512sums=apkbuild['sha512sums']
             )
         raise exceptions.SourceNotFound()
 
