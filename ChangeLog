@@ -4,6 +4,9 @@ CHANGES
 2021.09.29
 ----------
 
+* Release 2021.09.29
+* clarity++
+* Get rid of contentious lambda, add comments and docstrings
 * Verify SHA-512 checksums on Alpine source downloads
 
 2021.09.10
