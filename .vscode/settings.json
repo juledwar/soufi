@@ -12,7 +12,7 @@
     "python.testing.unittestEnabled": true,
     "python.testing.unittestArgs": [
         "-s",
-        "soufi.tests"
+        "soufi"
     ],
     "files.watcherExclude": {
         "**/.coverage/**": true,
