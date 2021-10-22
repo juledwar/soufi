@@ -35,6 +35,7 @@ class Distro(enum.Enum):
     rhel = "rhel"
     centos = "centos"
     alpine = "alpine"
+    photon = "photon"
 
 
 class DiscoveredSource(metaclass=abc.ABCMeta):
