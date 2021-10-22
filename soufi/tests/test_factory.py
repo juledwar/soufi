@@ -33,6 +33,7 @@ class TestFinderFactory(base.TestCase):
             'go',
             'java',
             'npm',
+            'photon',
             'python',
             'ubuntu',
         ]

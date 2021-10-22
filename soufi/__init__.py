@@ -106,6 +106,13 @@ class Finder:
         )
         return cls.find(gem_finder)
 
+    @classmethod
+    def photon(cls, name, version):
+        photon_finder = finder.factory(
+            "photon", name=name, version=version, s_type=finder.SourceType.os
+        )
+        return cls.find(photon_finder)
+
 
 def make_archive_from_discovery_source(disc_src, fname):
     try:

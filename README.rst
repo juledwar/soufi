@@ -11,6 +11,7 @@ Currently supported finders are:
  - Ubuntu OS packages
  - CentOS packages
  - Alpine packages
+ - Photon OS packages
  - NPM packages
  - Python sdists
  - Golang modules
