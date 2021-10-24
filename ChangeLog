@@ -1,6 +1,13 @@
 CHANGES
 =======
 
+2021.10.24
+----------
+
+* Add a finder for Photon OS
+* Update vscode unittest path
+* Add release instructions and tox envs
+
 2021.09.29
 ----------
 
