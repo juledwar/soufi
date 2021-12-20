@@ -226,7 +226,11 @@ class FinderFactory:
         for _, module, _ in pkgutil.iter_modules(soufi.finders.__path__):
             mod = importlib.import_module(f"soufi.finders.{module}")
             for _name, obj in mod.__dict__.items():
-                if isclass(obj) and issubclass(obj, SourceFinder):
+                if (
+                    isclass(obj)
+                    and issubclass(obj, SourceFinder)
+                    and not hasattr(obj.distro, '__isabstractmethod__')
+                ):
                     # Add class object to our dict.
                     self._finders[obj.distro] = obj
 
