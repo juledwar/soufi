@@ -52,7 +52,9 @@ class Finder:
         return cls.find(python_finder)
 
     @classmethod
-    def centos(cls, name, version, repos=None):
+    def centos(
+        cls, name, version, repos=None, source_repos=None, binary_repos=None
+    ):
         optimal = 'optimal' in repos
         centos_finder = finder.factory(
             "centos",
@@ -61,6 +63,8 @@ class Finder:
             s_type=finder.SourceType.os,
             repos=repos,
             optimal_repos=optimal,
+            source_repos=source_repos,
+            binary_repos=binary_repos,
         )
         return cls.find(centos_finder)
 
@@ -147,7 +151,7 @@ def make_archive_from_discovery_source(disc_src, fname):
 )
 @click.option(
     "--repo",
-    default=None,
+    default=(),
     multiple=True,
     help="For CentOS, name of repo to use instead of defaults. "
     "Use 'optimal' to use an extended optimal set. May be repeated.",
@@ -157,14 +161,16 @@ def make_archive_from_discovery_source(disc_src, fname):
     default=(),
     multiple=True,
     help="For Yum-based distros, URL of a source repo mirror to use "
-    "for lookups instead of the distro defaults. May be repeated. ",
+    "for lookups instead of the distro defaults. May be repeated. "
+    "On CentOS, this causes --repo to be ignored.",
 )
 @click.option(
     "--binary-repo",
     default=(),
     multiple=True,
     help="For Yum-based distros, URL of a binary repo mirror to use "
-    "for lookups instead of the distro defaults. May be repeated. ",
+    "for lookups instead of the distro defaults. May be repeated. "
+    "On CentOS, this causes --repo to be ignored.",
 )
 @click.option(
     "--goproxy",
@@ -230,7 +236,13 @@ def main(
         elif distro == 'alpine':
             disc_source = func(name, version, aports_dir=aports)
         elif distro == 'centos':
-            disc_source = func(name, version, repos=repo)
+            disc_source = func(
+                name,
+                version,
+                repos=repo,
+                source_repos=source_repo,
+                binary_repos=binary_repo,
+            )
         elif distro == 'photon':
             disc_source = func(
                 name,
