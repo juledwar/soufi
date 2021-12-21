@@ -107,9 +107,14 @@ class Finder:
         return cls.find(gem_finder)
 
     @classmethod
-    def photon(cls, name, version):
+    def photon(cls, name, version, source_repos=None, binary_repos=None):
         photon_finder = finder.factory(
-            "photon", name=name, version=version, s_type=finder.SourceType.os
+            "photon",
+            name=name,
+            version=version,
+            s_type=finder.SourceType.os,
+            source_repos=source_repos,
+            binary_repos=binary_repos,
         )
         return cls.find(photon_finder)
 
@@ -148,6 +153,20 @@ def make_archive_from_discovery_source(disc_src, fname):
     "Use 'optimal' to use an extended optimal set. May be repeated.",
 )
 @click.option(
+    "--source-repo",
+    default=(),
+    multiple=True,
+    help="For Yum-based distros, URL of a source repo mirror to use "
+    "for lookups instead of the distro defaults. May be repeated. ",
+)
+@click.option(
+    "--binary-repo",
+    default=(),
+    multiple=True,
+    help="For Yum-based distros, URL of a binary repo mirror to use "
+    "for lookups instead of the distro defaults. May be repeated. ",
+)
+@click.option(
     "--goproxy",
     default="https://proxy.golang.org/",
     help="GOPROXY to use when downloading Golang module source",
@@ -171,7 +190,17 @@ def make_archive_from_discovery_source(disc_src, fname):
     "(This option takes precedence over -o/--output)",
 )
 def main(
-    distro, name, version, pyindex, aports, repo, goproxy, output, auto_output
+    distro,
+    name,
+    version,
+    pyindex,
+    aports,
+    repo,
+    goproxy,
+    output,
+    auto_output,
+    source_repo,
+    binary_repo,
 ):
     """Find and optionally download source files.
 
@@ -184,8 +213,8 @@ def main(
     archive is used instead.
 
     The sources currently supported are 'debian', 'ubuntu', 'centos', 'alpine',
-    'java', 'go', 'python' and 'npm', one of which must be specified as the
-    DISTRO argument.
+    'photon', 'java', 'go', 'python', and 'npm', one of which must be
+    specified as the DISTRO argument.
     """
     try:
         func = getattr(Finder, distro)
@@ -202,6 +231,13 @@ def main(
             disc_source = func(name, version, aports_dir=aports)
         elif distro == 'centos':
             disc_source = func(name, version, repos=repo)
+        elif distro == 'photon':
+            disc_source = func(
+                name,
+                version,
+                source_repos=source_repo,
+                binary_repos=binary_repo,
+            )
         elif distro == 'go':
             disc_source = func(name, version, goproxy=goproxy)
         else:
