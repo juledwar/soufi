@@ -122,6 +122,18 @@ class Finder:
         )
         return cls.find(photon_finder)
 
+    @classmethod
+    def rhel(cls, name, version, source_repos=None, binary_repos=None):
+        rhel_finder = finder.factory(
+            "rhel",
+            name=name,
+            version=version,
+            s_type=finder.SourceType.os,
+            source_repos=source_repos,
+            binary_repos=binary_repos,
+        )
+        return cls.find(rhel_finder)
+
 
 def make_archive_from_discovery_source(disc_src, fname):
     try:
@@ -218,8 +230,8 @@ def main(
     name specifed.  If the original source is already an archive then that
     archive is used instead.
 
-    The sources currently supported are 'debian', 'ubuntu', 'centos', 'alpine',
-    'photon', 'java', 'go', 'python', and 'npm', one of which must be
+    The sources currently supported are 'debian', 'ubuntu', 'rhel', 'centos',
+    'alpine', 'photon', 'java', 'go', 'python', and 'npm', one of which must be
     specified as the DISTRO argument.
     """
     try:
@@ -243,7 +255,7 @@ def main(
                 source_repos=source_repo,
                 binary_repos=binary_repo,
             )
-        elif distro == 'photon':
+        elif distro in ('photon', 'rhel'):
             disc_source = func(
                 name,
                 version,

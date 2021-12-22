@@ -9,6 +9,7 @@ any existing downloadable archive.
 Currently supported finders are:
  - Debian OS packages
  - Ubuntu OS packages
+ - Red Hat (UBI) packages
  - CentOS packages
  - Alpine packages
  - Photon OS packages

@@ -35,6 +35,7 @@ class TestFinderFactory(base.TestCase):
             'npm',
             'photon',
             'python',
+            'rhel',
             'ubuntu',
         ]
         self.assertListEqual(expected, factory.supported_types)
