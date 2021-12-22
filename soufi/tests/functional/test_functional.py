@@ -59,3 +59,28 @@ class FunctionalFinderTests(testtools.TestCase):
         url = 'https://vault.centos.org/centos/7.9.2009/os/Source/SPackages/bind-9.11.4-26.P2.el7.src.rpm'  # noqa: E501
         result = centos.find()
         self.assertEqual([url], result.urls)
+
+    def test_find_rhel_binary_from_source(self):
+        # Test finding sources for binary packages with entirely different
+        # names/versions.
+        rhel = finder.factory(
+            'rhel',
+            name='vim-minimal',
+            version='7.4.629-8.el7_9',
+            s_type=SourceType.os,
+        )
+        url = 'https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi/server/7/7Server/x86_64/source/SRPMS/Packages/v/vim-7.4.629-8.el7_9.src.rpm'  # noqa: E501
+        result = rhel.find()
+        self.assertEqual([url], result.urls)
+
+    def test_find_rhel_binary_from_source_epoch(self):
+        # Ibid, but with the epoch included with the version
+        rhel = finder.factory(
+            'rhel',
+            name='vim-minimal',
+            version='2:7.4.629-8.el7_9',
+            s_type=SourceType.os,
+        )
+        url = 'https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi/server/7/7Server/x86_64/source/SRPMS/Packages/v/vim-7.4.629-8.el7_9.src.rpm'  # noqa: E501
+        result = rhel.find()
+        self.assertEqual([url], result.urls)
