@@ -16,6 +16,7 @@ DEFAULT_SEARCH = ('BaseOS', 'os', 'updates', 'extras')
 # Optimal search dirs considered a useful extended set to inspect in
 # addition to the defaults.
 OPTIMAL_SEARCH = ('AppStream', 'PowerTools', 'fasttrack')
+
 # CentOS is adorable sometimes.  The current release on mirror.centos.org
 # stores zero binary packages in the vault.  It does store all source
 # packages, however.  So when looking up binary package repos,
@@ -39,6 +40,8 @@ class CentosFinder(yum_finder.YumFinder):
     """
 
     distro = finder.Distro.centos.value
+    _reinit_source_for_walk = False
+    _reinit_binary_for_walk = False
 
     def __init__(
         self,
@@ -53,8 +56,12 @@ class CentosFinder(yum_finder.YumFinder):
             repos = DEFAULT_SEARCH
         if not source_repos:
             source_repos = self._get_source_repos(repos, optimal_repos)
+            self._reinit_source_for_walk = True
+            self._reinit_args = (repos, optimal_repos)
         if not binary_repos:
             binary_repos = self._get_binary_repos(repos, optimal_repos)
+            self._reinit_binary_for_walk = True
+            self._reinit_args = (repos, optimal_repos)
         super().__init__(
             *args,
             source_repos=source_repos,
@@ -81,49 +88,61 @@ class CentosFinder(yum_finder.YumFinder):
         """Determine which source search paths are valid.
 
         Spams the vault with HEAD requests and keeps the ones that hit.
+
+        CentOS is *big*.  CentOS is old, and the layout of the historical
+        repos in the vault is so sprawling, that on average it takes about
+        2 minutes of wall-clock time just to figure out where all of the
+        repos are, and then even more time to subsequently download them all.
+
+        As such, this is implemented as a generator so that the methods in the
+        YumFinder base class can "load as it goes", rather than having to
+        do a ton of discovery up-front that might end up being wasted.
+        Absolutely everything is cached, so the relative overhead of having
+        to run the generator over when re-walking the list of repos is minimal.
         """
-        source_repos = []
         for dir in self._get_dirs():
             for subdir in subdirs:
                 url = f"{VAULT}/{dir}/{subdir}/Source/"
                 if self._test_url(url + "repodata/"):
-                    source_repos.append(url)
+                    yield url
             if optimal_repos:
                 for subdir in OPTIMAL_SEARCH:
                     url = f"{VAULT}/{dir}/{subdir}/Source/"
                     if self._test_url(url + "repodata/"):
-                        source_repos.append(url)
-        return source_repos
+                        yield url
 
     def _get_binary_repos(self, subdirs: Iterable[str], optimal_repos: bool):
         """Determine which binary search paths are valid.
 
         Spams the vault with HEAD requests and keeps the ones that hit.
+
+        This is also implemented as a generator.  See _get_source_repos().
         """
-        binary_repos = []
+
+        def _find_valid_repo_url(dir, subdir):
+            vault_url = f"{VAULT}/{dir}/{subdir}/x86_64/"
+            mirror_url = f"{MIRROR}/{dir}/{subdir}/x86_64/"
+            for url in vault_url, mirror_url:
+                if self._test_url(url + "os/repodata/"):
+                    yield url + "os/"
+                    break
+                elif self._test_url(url + "repodata/"):
+                    yield url
+                    break
+
         for dir in self._get_dirs():
             for subdir in subdirs:
-                vault_url = f"{VAULT}/{dir}/{subdir}/x86_64/"
-                mirror_url = f"{MIRROR}/{dir}/{subdir}/x86_64/"
-                if self._test_url(vault_url + "os/repodata/"):
-                    binary_repos.append(vault_url + "os/")
-                elif self._test_url(vault_url + "repodata/"):
-                    binary_repos.append(vault_url)
-                elif self._test_url(mirror_url + "os/repodata/"):
-                    binary_repos.append(mirror_url + "os/")
-                elif self._test_url(mirror_url + "repodata/"):
-                    binary_repos.append(mirror_url)
+                yield from _find_valid_repo_url(dir, subdir)
             if optimal_repos:
                 for subdir in OPTIMAL_SEARCH:
-                    vault_url = f"{VAULT}/{dir}/{subdir}/x86_64/"
-                    mirror_url = f"{MIRROR}/{dir}/{subdir}/x86_64/"
-                    if self._test_url(vault_url + "os/repodata/"):
-                        binary_repos.append(vault_url + "os/")
-                    elif self._test_url(vault_url + "repodata/"):
-                        binary_repos.append(vault_url)
-                    elif self._test_url(mirror_url + "os/repodata/"):
-                        binary_repos.append(mirror_url + "os/")
-                    elif self._test_url(mirror_url + "repodata/"):
-                        binary_repos.append(mirror_url)
+                    yield from _find_valid_repo_url(dir, subdir)
 
-        return binary_repos
+    def _walk_source_repos(self, name, version=None):
+        if self._reinit_source_for_walk:
+            self.source_repos = self._get_source_repos(*self._reinit_args)
+        return super()._walk_source_repos(name, version=version)
+
+    def _walk_binary_repos(self, name):
+        if self._reinit_binary_for_walk:
+            self.binary_repos = self._get_binary_repos(*self._reinit_args)
+        return super()._walk_binary_repos(name)
