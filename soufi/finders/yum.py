@@ -138,7 +138,7 @@ class YumFinder(finder.SourceFinder, metaclass=abc.ABCMeta):
 
     # Cache repo downloads as they are slow and network-bound.
     @classmethod
-    @functools.lru_cache(maxsize=128)
+    @functools.lru_cache(maxsize=1024)
     def _get_repo(cls, url):
         if not url.endswith('/'):
             url += '/'
@@ -183,8 +183,10 @@ class YumFinder(finder.SourceFinder, metaclass=abc.ABCMeta):
         except requests.exceptions.Timeout:
             return False
 
+    # Generally we just want functools.cache here, but a strictly unbounded
+    # cache is just a bad idea
     @staticmethod
-    @functools.lru_cache(maxsize=128)
+    @functools.lru_cache(maxsize=1048576)
     def _head_url(url):
         response = requests.head(url, timeout=TIMEOUT)
         return response.status_code == requests.codes.ok
