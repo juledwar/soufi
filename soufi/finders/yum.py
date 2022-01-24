@@ -35,20 +35,20 @@ class YumFinder(finder.SourceFinder, metaclass=abc.ABCMeta):
     def __init__(self, *args, source_repos=None, binary_repos=None, **kwargs):
         self.source_repos = source_repos
         if not self.source_repos:
-            self.source_repos = self._get_source_repos()
+            self.source_repos = self.get_source_repos()
 
         self.binary_repos = binary_repos
         if not self.binary_repos:
-            self.binary_repos = self._get_binary_repos()
+            self.binary_repos = self.get_binary_repos()
 
         super().__init__(*args, **kwargs)
 
     @abc.abstractmethod
-    def _get_source_repos(self):
+    def get_source_repos(self):
         raise NotImplementedError  # pragma: nocover
 
     @abc.abstractmethod
-    def _get_binary_repos(self):
+    def get_binary_repos(self):
         raise NotImplementedError  # pragma: nocover
 
     def _find(self):
@@ -71,7 +71,7 @@ class YumFinder(finder.SourceFinder, metaclass=abc.ABCMeta):
             raise exceptions.SourceNotFound
 
         # If we have a URL, but it's no good, we don't have a URL.
-        if not self._test_url(url):
+        if not self.test_url(url):
             raise exceptions.SourceNotFound
 
         return url
@@ -99,7 +99,7 @@ class YumFinder(finder.SourceFinder, metaclass=abc.ABCMeta):
             # packages that are present in the repo, but not in the repomd.
             locs = set(p.location.replace(p.vr, version) for p in packages)
             for loc in locs:
-                if self._test_url(repo.baseurl + loc):
+                if self.test_url(repo.baseurl + loc):
                     return repo.baseurl + loc
         return None
 
@@ -176,24 +176,24 @@ class YumFinder(finder.SourceFinder, metaclass=abc.ABCMeta):
 
     # Use this wrapper for doing HTTP HEAD requests, as it will swallow
     # Timeout exceptions, but cache other lookups.
-    @staticmethod
-    def _test_url(url):
+    @classmethod
+    def test_url(cls, url):
         try:
-            return YumFinder._head_url(url)
+            return cls._head_url(url)
         except requests.exceptions.Timeout:
             return False
 
     # Generally we just want functools.cache here, but a strictly unbounded
     # cache is just a bad idea
-    @staticmethod
+    @classmethod
     @functools.lru_cache(maxsize=1048576)
-    def _head_url(url):
+    def _head_url(cls, url):
         response = requests.head(url, timeout=TIMEOUT)
         return response.status_code == requests.codes.ok
 
-    @staticmethod
+    @classmethod
     @functools.lru_cache(maxsize=128)
-    def _get_url(url):
+    def get_url(cls, url):
         # Not used directly by this class, but subclasses tend to need it.
         response = requests.get(url, timeout=TIMEOUT)
         if response.status_code != requests.codes.ok:

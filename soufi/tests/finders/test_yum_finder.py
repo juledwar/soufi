@@ -20,10 +20,10 @@ class YumFinderImpl(yum.YumFinder):
 
     distro = 'yum'
 
-    def _get_source_repos(self):
+    def get_source_repos(self):
         return ()
 
-    def _get_binary_repos(self):
+    def get_binary_repos(self):
         return ()
 
 
@@ -106,7 +106,7 @@ class TestYumFinder(BaseYumTest):
         finder = self.make_finder(name=name)
         walk_src = self.patch(finder, '_walk_source_repos')
         walk_src.return_value = url
-        self.patch(finder, '_test_url').return_value = True
+        self.patch(finder, 'test_url').return_value = True
         self.assertEqual(url, finder.get_source_url())
         walk_src.assert_called_once_with(name)
 
@@ -119,7 +119,7 @@ class TestYumFinder(BaseYumTest):
         walk_src.side_effect = (None, url)
         walk_binary = self.patch(finder, '_walk_binary_repos')
         walk_binary.return_value = name, ver
-        self.patch(finder, '_test_url').return_value = True
+        self.patch(finder, 'test_url').return_value = True
         self.assertEqual(url, finder.get_source_url())
         walk_binary.assert_called_once_with(name)
         walk_src.assert_has_calls([mock.call(name), mock.call(name, ver)])
@@ -153,7 +153,7 @@ class TestYumFinder(BaseYumTest):
         finder = self.make_finder(name=name)
         walk_src = self.patch(finder, '_walk_source_repos')
         walk_src.return_value = url
-        self.patch(finder, '_test_url').return_value = False
+        self.patch(finder, 'test_url').return_value = False
         self.assertRaises(
             soufi.exceptions.SourceNotFound, finder.get_source_url
         )
@@ -168,7 +168,7 @@ class TestYumFinder(BaseYumTest):
         package = self.FakePackage(vr=finder.version)
         repo.findall.return_value = [package]
         self.patch(finder, '_get_repo').side_effect = (None, repo)
-        self.patch(finder, '_test_url').return_value = False
+        self.patch(finder, 'test_url').return_value = False
         url = finder._walk_source_repos(finder.name)
         self.assertEqual(repo.baseurl + package.location, url)
 
@@ -181,7 +181,7 @@ class TestYumFinder(BaseYumTest):
         package = self.FakePackage()
         repo.findall.return_value = [package]
         self.patch(finder, '_get_repo').return_value = repo
-        self.patch(finder, '_test_url').return_value = True
+        self.patch(finder, 'test_url').return_value = True
         url = finder._walk_source_repos(finder.name)
         self.assertEqual(repo.baseurl + package.location, url)
 
@@ -193,7 +193,7 @@ class TestYumFinder(BaseYumTest):
         package = self.FakePackage()
         repo.findall.return_value = [package]
         self.patch(finder, '_get_repo').return_value = repo
-        self.patch(finder, '_test_url').return_value = False
+        self.patch(finder, 'test_url').return_value = False
         url = finder._walk_source_repos(finder.name)
         self.assertIsNone(url)
 
@@ -306,20 +306,20 @@ class TestYumFinderHelpers(BaseYumTest):
         fake_req = self.patch(requests, 'head')
         fake_req.return_value = self.make_response('', requests.codes.ok)
         finder = self.make_finder()
-        self.assertTrue(finder._test_url(url))
+        self.assertTrue(finder.test_url(url))
 
     def test__test_url_false(self):
         url = self.factory.make_url()
         fake_req = self.patch(requests, 'head')
         fake_req.return_value = self.make_response('', requests.codes.teapot)
         finder = self.make_finder()
-        self.assertFalse(finder._test_url(url))
+        self.assertFalse(finder.test_url(url))
 
     def test__test_url_timeout(self):
         url = self.factory.make_url()
         self.patch(requests, 'head').side_effect = requests.exceptions.Timeout
         finder = self.make_finder()
-        self.assertFalse(finder._test_url(url))
+        self.assertFalse(finder.test_url(url))
 
 
 class TestYumsDiscoveredSource(base.TestCase):
