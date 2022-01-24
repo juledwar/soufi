@@ -10,7 +10,7 @@ class BaseRHELTest(base.TestCase):
     def setUp(self):
         super().setUp()
         yum.YumFinder._get_repo.cache_clear()
-        yum.YumFinder._get_url.cache_clear()
+        yum.YumFinder.get_url.cache_clear()
 
     def make_finder(self, name=None, version=None, **kwargs):
         if name is None:
