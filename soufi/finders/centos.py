@@ -55,11 +55,11 @@ class CentosFinder(yum_finder.YumFinder):
         if not repos or optimal_repos is True:
             repos = DEFAULT_SEARCH
         if not source_repos:
-            source_repos = self._get_source_repos(repos, optimal_repos)
+            source_repos = self.get_source_repos(repos, optimal_repos)
             self._reinit_source_for_walk = True
             self._reinit_args = (repos, optimal_repos)
         if not binary_repos:
-            binary_repos = self._get_binary_repos(repos, optimal_repos)
+            binary_repos = self.get_binary_repos(repos, optimal_repos)
             self._reinit_binary_for_walk = True
             self._reinit_args = (repos, optimal_repos)
         super().__init__(
@@ -71,7 +71,7 @@ class CentosFinder(yum_finder.YumFinder):
 
     def _get_dirs(self):
         """Get all the possible Vault dirs that could match."""
-        content = self._get_url(VAULT)
+        content = self.get_url(VAULT)
         tree = html.fromstring(content)
         dirs = tree.xpath('//td[@class="indexcolname"]/a/text()')
         # CentOS Vault is fond of symlinking the current point release to a
@@ -84,7 +84,7 @@ class CentosFinder(yum_finder.YumFinder):
         # Walk the tree backwards, so that newer releases get searched first
         return reversed(dirs)
 
-    def _get_source_repos(self, subdirs: Iterable[str], optimal_repos: bool):
+    def get_source_repos(self, subdirs: Iterable[str], optimal_repos: bool):
         """Determine which source search paths are valid.
 
         Spams the vault with HEAD requests and keeps the ones that hit.
@@ -103,30 +103,30 @@ class CentosFinder(yum_finder.YumFinder):
         for dir in self._get_dirs():
             for subdir in subdirs:
                 url = f"{VAULT}/{dir}/{subdir}/Source/"
-                if self._test_url(url + "repodata/"):
+                if self.test_url(url + "repodata/"):
                     yield url
             if optimal_repos:
                 for subdir in OPTIMAL_SEARCH:
                     url = f"{VAULT}/{dir}/{subdir}/Source/"
-                    if self._test_url(url + "repodata/"):
+                    if self.test_url(url + "repodata/"):
                         yield url
 
-    def _get_binary_repos(self, subdirs: Iterable[str], optimal_repos: bool):
+    def get_binary_repos(self, subdirs: Iterable[str], optimal_repos: bool):
         """Determine which binary search paths are valid.
 
         Spams the vault with HEAD requests and keeps the ones that hit.
 
-        This is also implemented as a generator.  See _get_source_repos().
+        This is also implemented as a generator.  See get_source_repos().
         """
 
         def _find_valid_repo_url(dir, subdir):
             vault_url = f"{VAULT}/{dir}/{subdir}/x86_64/"
             mirror_url = f"{MIRROR}/{dir}/{subdir}/x86_64/"
             for url in vault_url, mirror_url:
-                if self._test_url(url + "os/repodata/"):
+                if self.test_url(url + "os/repodata/"):
                     yield url + "os/"
                     break
-                elif self._test_url(url + "repodata/"):
+                elif self.test_url(url + "repodata/"):
                     yield url
                     break
 
@@ -139,10 +139,10 @@ class CentosFinder(yum_finder.YumFinder):
 
     def _walk_source_repos(self, name, version=None):
         if self._reinit_source_for_walk:
-            self.source_repos = self._get_source_repos(*self._reinit_args)
+            self.source_repos = self.get_source_repos(*self._reinit_args)
         return super()._walk_source_repos(name, version=version)
 
     def _walk_binary_repos(self, name):
         if self._reinit_binary_for_walk:
-            self.binary_repos = self._get_binary_repos(*self._reinit_args)
+            self.binary_repos = self.get_binary_repos(*self._reinit_args)
         return super()._walk_binary_repos(name)
