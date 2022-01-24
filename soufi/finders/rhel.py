@@ -32,11 +32,11 @@ class RHELFinder(yum_finder.YumFinder):
         'ubi/atomic/7/7Server/x86_64',
     )
 
-    def _get_source_repos(self):
+    def get_source_repos(self):
         return [
             f"{DEFAULT_REPO}/{dir}/source/SRPMS"
             for dir in self.default_search_dirs
         ]
 
-    def _get_binary_repos(self):
+    def get_binary_repos(self):
         return [f"{DEFAULT_REPO}/{dir}/os" for dir in self.default_search_dirs]
