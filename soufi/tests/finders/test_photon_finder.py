@@ -15,7 +15,7 @@ class BasePhotonTest(base.TestCase):
     def setUp(self):
         super().setUp()
         yum.YumFinder._get_repo.cache_clear()
-        yum.YumFinder._get_url.cache_clear()
+        yum.YumFinder.get_url.cache_clear()
 
     def make_finder(self, name=None, version=None, **kwargs):
         if name is None:
@@ -54,8 +54,8 @@ class TestPhotonFinder(BasePhotonTest):
     def test_initializer_finds_repos_when_called_with_no_args(self):
         name = self.factory.make_string('name')
         version = self.factory.make_string('version')
-        get_source_repos = self.patch(photon.PhotonFinder, '_get_source_repos')
-        get_binary_repos = self.patch(photon.PhotonFinder, '_get_binary_repos')
+        get_source_repos = self.patch(photon.PhotonFinder, 'get_source_repos')
+        get_binary_repos = self.patch(photon.PhotonFinder, 'get_binary_repos')
         photon.PhotonFinder(name, version, SourceType.os)
         get_source_repos.assert_called_once_with()
         get_binary_repos.assert_called_once_with()
@@ -83,7 +83,7 @@ class TestPhotonFinder(BasePhotonTest):
             self.make_response(page1, requests.codes.ok),
             self.make_response(page2, requests.codes.ok),
         )
-        result = finder._get_source_repos()
+        result = finder.get_source_repos()
         expected = [
             photon.PHOTON_PACKAGES + '/' + top_repos[1] + repos[0],
             photon.PHOTON_PACKAGES + '/' + top_repos[1] + repos[2],
@@ -107,7 +107,7 @@ class TestPhotonFinder(BasePhotonTest):
         finder = self.make_finder()
         get = self.patch(requests, 'get')
         get.return_value = self.make_response(b'', requests.codes.not_found)
-        self.assertRaises(exceptions.DownloadError, finder._get_source_repos)
+        self.assertRaises(exceptions.DownloadError, finder.get_source_repos)
 
     def test__get_source_repos_subdir_failure_omits_subdirs(self):
         finder = self.make_finder()
@@ -121,7 +121,7 @@ class TestPhotonFinder(BasePhotonTest):
             self.make_response(data, requests.codes.ok),
         )
         # We should only have one source repo directory available
-        result = finder._get_source_repos()
+        result = finder.get_source_repos()
         expected = [f"{photon.PHOTON_PACKAGES}/1.0/1_srpms_x86_64/"]
         self.assertEqual(expected, result)
         get.assert_has_calls(
@@ -158,7 +158,7 @@ class TestPhotonFinder(BasePhotonTest):
             photon.PHOTON_PACKAGES + '/' + top_repos[1] + repos[2],
             photon.PHOTON_PACKAGES + '/' + top_repos[0] + repos[3],
         ]
-        result = finder._get_binary_repos()
+        result = finder.get_binary_repos()
         self.assertEqual(expected, result)
         get.assert_has_calls(
             [
@@ -176,7 +176,7 @@ class TestPhotonFinder(BasePhotonTest):
         finder = self.make_finder()
         get = self.patch(requests, 'get')
         get.return_value = self.make_response(b'', requests.codes.not_found)
-        self.assertRaises(exceptions.DownloadError, finder._get_binary_repos)
+        self.assertRaises(exceptions.DownloadError, finder.get_binary_repos)
 
     def test__get_binary_repos_subdir_failure_omits_subdirs(self):
         finder = self.make_finder()
@@ -190,7 +190,7 @@ class TestPhotonFinder(BasePhotonTest):
             self.make_response(data, requests.codes.ok),
         )
         # We should only have one source repo directory available
-        result = finder._get_binary_repos()
+        result = finder.get_binary_repos()
         expected = [f"{photon.PHOTON_PACKAGES}/6.0/1_base_x86_64"]
         self.assertEqual(expected, result)
         get.assert_has_calls(
@@ -206,7 +206,7 @@ class TestPhotonFinder(BasePhotonTest):
         version = self.factory.make_string('ver')
         urls = [self.factory.make_url() for _ in range(10)]
         finder = self.make_finder(source_repos=urls)
-        test_url = self.patch(finder, '_test_url')
+        test_url = self.patch(finder, 'test_url')
         test_url.side_effect = (False, False, True)
         # Ensure that it doesn't run the entire list once one has been found
         self.assertEqual(
@@ -222,7 +222,7 @@ class TestPhotonFinder(BasePhotonTest):
         version = self.factory.make_string('ver')
         urls = [self.factory.make_url() for _ in range(3)]
         finder = self.make_finder(source_repos=urls)
-        test_url = self.patch(finder, '_test_url')
+        test_url = self.patch(finder, 'test_url')
         test_url.return_value = False
         self.assertIsNone(finder._walk_source_repos(name, version))
         test_url.assert_has_calls(
@@ -234,6 +234,6 @@ class TestPhotonFinder(BasePhotonTest):
         # Deliberately setup the mock wrong, this way if future code breaks
         # the short-circuit behaviour this will throw errors
         finder = self.make_finder(source_repos=[1, 2, 3])
-        test_url = self.patch(finder, '_test_url')
+        test_url = self.patch(finder, 'test_url')
         self.assertIsNone(finder._walk_source_repos(arg))
         test_url.assert_not_called()

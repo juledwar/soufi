@@ -21,7 +21,7 @@ class PhotonFinder(yum_finder.YumFinder):
     distro = finder.Distro.photon.value
 
     def _get_dirs(self):
-        content = self._get_url(PHOTON_PACKAGES)
+        content = self.get_url(PHOTON_PACKAGES)
         tree = html.fromstring(content)
         retval = tree.xpath('//a/text()')
         return reversed([dir for dir in retval if dir[0].isdigit()])
@@ -31,7 +31,7 @@ class PhotonFinder(yum_finder.YumFinder):
         for release_dir in self._get_dirs():
             url = f"{PHOTON_PACKAGES}/{release_dir}"
             try:
-                content = self._get_url(url)
+                content = self.get_url(url)
             except soufi.exceptions.DownloadError:
                 continue
             tree = html.fromstring(content)
@@ -41,12 +41,12 @@ class PhotonFinder(yum_finder.YumFinder):
             dirs += [url + dir for dir in tree.xpath(xpath)]
         return dirs
 
-    def _get_source_repos(self):
+    def get_source_repos(self):
         return self._get_repos(
             "//a[text()[contains(.,'srpms')][contains(.,'x86_64')]]/text()"
         )
 
-    def _get_binary_repos(self):
+    def get_binary_repos(self):
         return self._get_repos(
             "//a[text()[not(contains(.,'srpms'))][contains(.,'x86_64')]]/text()"  # noqa: E501
         )
@@ -64,6 +64,6 @@ class PhotonFinder(yum_finder.YumFinder):
         # the source repos.  This is startlingly effective.
         for repo in self.source_repos:
             url = f"{repo.rstrip('/')}/{name}-{version}.src.rpm"
-            if self._test_url(url):
+            if self.test_url(url):
                 return url
         return None
