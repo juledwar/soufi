@@ -71,7 +71,7 @@ class TestCentosFinder(BaseCentosTest):
         get.return_value = self.make_response(top_data, requests.codes.ok)
         result = list(finder._get_dirs())
         # Ensure that only the items we're interested in come back
-        self.assertEqual([top_repos[3], top_repos[1], top_repos[0]], result)
+        self.assertEqual(['3.7.89', '2.1.3456', '1.0.123'], result)
         get.assert_called_once_with(centos.VAULT, timeout=30)
 
     def test__get_source_repos(self):
