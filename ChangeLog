@@ -1,9 +1,26 @@
 CHANGES
 =======
 
+2022.01.25
+----------
+
+* RHEL: redo visibility of YumFinder methods
+* CentOS: redo visibility of YumFinder methods
+* Photon: redo visibility of YumFinder methods
+* Yum: redo visibility of YumFinder methods
+* CentOS: improve TestCentosFinder.test\_\_get\_dirs clarity
+* CentOS: reimplement CentosFinder.\_get\_\*\_repos as generators
+* Yum: adjust LRU cache sizes
+* Add a RHEL (UBI) finder to Soufi
+* Refactor CentOS finder as a subclass of YumFinder
+* Refactor Photon OS finder as a subclass of YumFinder
+* Create a new common YumFinder class
+* Update test requirements, addressing iPython CVE
+
 2021.10.24
 ----------
 
+* Release 2021.10.24
 * Add a finder for Photon OS
 * Update vscode unittest path
 * Add release instructions and tox envs
