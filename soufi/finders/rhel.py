@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Cisco Systems, Inc. and its affiliates
+# Copyright (c) 2022 Cisco Systems, Inc. and its affiliates
 # All rights reserved.
 
 import soufi.finders.yum as yum_finder
@@ -33,10 +33,9 @@ class RHELFinder(yum_finder.YumFinder):
     )
 
     def get_source_repos(self):
-        return [
-            f"{DEFAULT_REPO}/{dir}/source/SRPMS"
-            for dir in self.default_search_dirs
-        ]
+        for dir in self.default_search_dirs:
+            yield f"{DEFAULT_REPO}/{dir}/source/SRPMS"
 
     def get_binary_repos(self):
-        return [f"{DEFAULT_REPO}/{dir}/os" for dir in self.default_search_dirs]
+        for dir in self.default_search_dirs:
+            yield f"{DEFAULT_REPO}/{dir}/os"
