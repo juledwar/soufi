@@ -51,15 +51,6 @@ class TestPhotonFinder(BasePhotonTest):
         self.assertIsInstance(disc_source, yum.YumDiscoveredSource)
         self.assertEqual([url], disc_source.urls)
 
-    def test_initializer_finds_repos_when_called_with_no_args(self):
-        name = self.factory.make_string('name')
-        version = self.factory.make_string('version')
-        get_source_repos = self.patch(photon.PhotonFinder, 'get_source_repos')
-        get_binary_repos = self.patch(photon.PhotonFinder, 'get_binary_repos')
-        photon.PhotonFinder(name, version, SourceType.os)
-        get_source_repos.assert_called_once_with()
-        get_binary_repos.assert_called_once_with()
-
     def test__get_source_repos(self):
         finder = self.make_finder()
         # Ensure irrelevant repo dirs are ignored with the 'bogus' ones.

@@ -1,5 +1,6 @@
 # Copyright (c) 2021 Cisco Systems, Inc. and its affiliates
 # All rights reserved.
+from testtools.matchers import SameMembers
 
 from soufi.finder import SourceType
 from soufi.finders import rhel, yum
@@ -31,7 +32,7 @@ class BaseRHELTest(base.TestCase):
         self.assertIsInstance(disc_source, yum.YumDiscoveredSource)
         self.assertEqual([url], disc_source.urls)
 
-    def test_initializer_uses_defaults_when_called_with_no_args(self):
+    def test_default_repos(self):
         name = self.factory.make_string('name')
         version = self.factory.make_string('version')
         finder = rhel.RHELFinder(name, version, SourceType.os)
@@ -43,5 +44,9 @@ class BaseRHELTest(base.TestCase):
             f"{rhel.DEFAULT_REPO}/{dir}/os"
             for dir in rhel.RHELFinder.default_search_dirs
         ]
-        self.assertEqual(expected_source, finder.source_repos)
-        self.assertEqual(expected_binary, finder.binary_repos)
+        self.assertThat(
+            finder.get_source_repos(), SameMembers(expected_source)
+        )
+        self.assertThat(
+            finder.get_binary_repos(), SameMembers(expected_binary)
+        )

@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Cisco Systems, Inc. and its affiliates
+# Copyright (c) 2022 Cisco Systems, Inc. and its affiliates
 # All rights reserved.
 
 import abc
@@ -34,14 +34,25 @@ class YumFinder(finder.SourceFinder, metaclass=abc.ABCMeta):
 
     def __init__(self, *args, source_repos=None, binary_repos=None, **kwargs):
         self.source_repos = source_repos
-        if not self.source_repos:
-            self.source_repos = self.get_source_repos()
-
         self.binary_repos = binary_repos
-        if not self.binary_repos:
-            self.binary_repos = self.get_binary_repos()
-
         super().__init__(*args, **kwargs)
+
+    def generate_repos(self, repos, fallback):
+        """Ensure a generator is always returned for repos.
+
+        Either turn the init's value into a generator, or use the fallback
+        methods that return the default ones as a generator.
+        """
+        if repos:
+            yield from repos
+        else:
+            yield from fallback()
+
+    def generate_source_repos(self):
+        return self.generate_repos(self.source_repos, self.get_source_repos)
+
+    def generate_binary_repos(self):
+        return self.generate_repos(self.binary_repos, self.get_binary_repos)
 
     @abc.abstractmethod
     def get_source_repos(self):
@@ -80,7 +91,7 @@ class YumFinder(finder.SourceFinder, metaclass=abc.ABCMeta):
         if version is None:
             version = self.version
         packages = []
-        for repo_url in self.source_repos:
+        for repo_url in self.generate_source_repos():
             repo = self._get_repo(repo_url)
             if repo is None:
                 continue
@@ -105,7 +116,7 @@ class YumFinder(finder.SourceFinder, metaclass=abc.ABCMeta):
 
     def _walk_binary_repos(self, name):
         packages = []
-        for repo_url in self.binary_repos:
+        for repo_url in self.generate_binary_repos():
             repo = self._get_repo(repo_url)
             if repo is None:
                 continue

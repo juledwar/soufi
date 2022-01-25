@@ -54,15 +54,6 @@ class TestCentosFinder(BaseCentosTest):
         self.assertIsInstance(disc_source, yum.YumDiscoveredSource)
         self.assertEqual([url], disc_source.urls)
 
-    def test_initializer_finds_repos_when_called_with_no_args(self):
-        name = self.factory.make_string('name')
-        version = self.factory.make_string('version')
-        get_source_repos = self.patch(centos.CentosFinder, 'get_source_repos')
-        get_binary_repos = self.patch(centos.CentosFinder, 'get_binary_repos')
-        centos.CentosFinder(name, version, SourceType.os)
-        get_source_repos.assert_called_once_with(centos.DEFAULT_SEARCH, False)
-        get_binary_repos.assert_called_once_with(centos.DEFAULT_SEARCH, False)
-
     def test__get_dirs(self):
         finder = self.make_finder()
         top_repos = ('1.0.123', '2.1.3456', 'bogus', '3.7.89', '3')
@@ -75,14 +66,14 @@ class TestCentosFinder(BaseCentosTest):
         get.assert_called_once_with(centos.VAULT, timeout=30)
 
     def test__get_source_repos(self):
-        finder = self.make_finder()
-        dirs = [self.factory.make_string() for _ in range(3)]
         subdirs = [self.factory.make_string() for _ in range(3)]
+        finder = self.make_finder(repos=subdirs)
+        dirs = [self.factory.make_string() for _ in range(3)]
         get_dirs = self.patch(finder, '_get_dirs')
         get_dirs.return_value = dirs
         test_url = self.patch(finder, 'test_url')
         test_url.return_value = True
-        result = list(finder.get_source_repos(subdirs, False))
+        result = list(finder.get_source_repos())
         expected = [
             f"{centos.VAULT}/{dir}/{subdir}/Source/"
             for dir in dirs
@@ -91,30 +82,30 @@ class TestCentosFinder(BaseCentosTest):
         self.assertEqual(expected, result)
 
     def test__get_source_repos_optimal(self):
-        finder = self.make_finder()
-        dirs = [self.factory.make_string() for _ in range(3)]
         subdirs = [self.factory.make_string() for _ in range(3)]
+        finder = self.make_finder(repos=subdirs, optimal_repos=True)
+        dirs = [self.factory.make_string() for _ in range(3)]
         get_dirs = self.patch(finder, '_get_dirs')
         get_dirs.return_value = dirs
         test_url = self.patch(finder, 'test_url')
         test_url.return_value = True
-        result = list(finder.get_source_repos(subdirs, True))
+        result = list(finder.get_source_repos())
         expected = [
             f"{centos.VAULT}/{dir}/{subdir}/Source/"
             for dir in dirs
-            for subdir in (tuple(subdirs) + centos.OPTIMAL_SEARCH)
+            for subdir in (centos.DEFAULT_SEARCH + centos.OPTIMAL_SEARCH)
         ]
         self.assertEqual(expected, result)
 
     def test__get_binary_repos(self):
-        finder = self.make_finder()
-        dirs = [self.factory.make_string() for _ in range(3)]
         subdirs = [self.factory.make_string() for _ in range(3)]
+        finder = self.make_finder(repos=subdirs)
+        dirs = [self.factory.make_string() for _ in range(3)]
         get_dirs = self.patch(finder, '_get_dirs')
         get_dirs.return_value = dirs
         test_url = self.patch(finder, 'test_url')
         test_url.return_value = True
-        result = list(finder.get_binary_repos(subdirs, False))
+        result = list(finder.get_binary_repos())
         expected = [
             f"{centos.VAULT}/{dir}/{subdir}/x86_64/os/"
             for dir in dirs
@@ -123,14 +114,14 @@ class TestCentosFinder(BaseCentosTest):
         self.assertEqual(expected, result)
 
     def test__get_binary_repos_old_style(self):
-        finder = self.make_finder()
-        dirs = [self.factory.make_string() for _ in range(3)]
         subdirs = [self.factory.make_string() for _ in range(3)]
+        finder = self.make_finder(repos=subdirs)
+        dirs = [self.factory.make_string() for _ in range(3)]
         get_dirs = self.patch(finder, '_get_dirs')
         get_dirs.return_value = dirs
         test_url = self.patch(finder, 'test_url')
         test_url.side_effect = itertools.cycle((False, True))
-        result = list(finder.get_binary_repos(subdirs, False))
+        result = list(finder.get_binary_repos())
         expected = [
             f"{centos.VAULT}/{dir}/{subdir}/x86_64/"
             for dir in dirs
@@ -139,14 +130,14 @@ class TestCentosFinder(BaseCentosTest):
         self.assertEqual(expected, result)
 
     def test__get_binary_repos_using_mirror(self):
-        finder = self.make_finder()
-        dirs = [self.factory.make_string() for _ in range(3)]
         subdirs = [self.factory.make_string() for _ in range(3)]
+        finder = self.make_finder(repos=subdirs)
+        dirs = [self.factory.make_string() for _ in range(3)]
         get_dirs = self.patch(finder, '_get_dirs')
         get_dirs.return_value = dirs
         test_url = self.patch(finder, 'test_url')
         test_url.side_effect = itertools.cycle((False, False, True))
-        result = list(finder.get_binary_repos(subdirs, False))
+        result = list(finder.get_binary_repos())
         expected = [
             f"{centos.MIRROR}/{dir}/{subdir}/x86_64/os/"
             for dir in dirs
@@ -155,14 +146,14 @@ class TestCentosFinder(BaseCentosTest):
         self.assertEqual(expected, result)
 
     def test__get_binary_repos_old_style_using_mirror(self):
-        finder = self.make_finder()
-        dirs = [self.factory.make_string() for _ in range(3)]
         subdirs = [self.factory.make_string() for _ in range(3)]
+        finder = self.make_finder(repos=subdirs)
+        dirs = [self.factory.make_string() for _ in range(3)]
         get_dirs = self.patch(finder, '_get_dirs')
         get_dirs.return_value = dirs
         test_url = self.patch(finder, 'test_url')
         test_url.side_effect = itertools.cycle((False, False, False, True))
-        result = list(finder.get_binary_repos(subdirs, False))
+        result = list(finder.get_binary_repos())
         expected = [
             f"{centos.MIRROR}/{dir}/{subdir}/x86_64/"
             for dir in dirs
@@ -171,111 +162,65 @@ class TestCentosFinder(BaseCentosTest):
         self.assertEqual(expected, result)
 
     def test__get_binary_repos_optimal(self):
-        finder = self.make_finder()
-        dirs = [self.factory.make_string() for _ in range(3)]
         subdirs = [self.factory.make_string() for _ in range(3)]
+        finder = self.make_finder(repos=subdirs, optimal_repos=True)
+        dirs = [self.factory.make_string() for _ in range(3)]
         get_dirs = self.patch(finder, '_get_dirs')
         get_dirs.return_value = dirs
         test_url = self.patch(finder, 'test_url')
         test_url.return_value = True
-        result = list(finder.get_binary_repos(subdirs, True))
+        result = list(finder.get_binary_repos())
         expected = [
             f"{centos.VAULT}/{dir}/{subdir}/x86_64/os/"
             for dir in dirs
-            for subdir in (tuple(subdirs) + centos.OPTIMAL_SEARCH)
+            for subdir in (centos.DEFAULT_SEARCH + centos.OPTIMAL_SEARCH)
         ]
         self.assertEqual(expected, result)
 
     def test__get_binary_repos_optimal_old_style(self):
-        finder = self.make_finder()
-        dirs = [self.factory.make_string() for _ in range(3)]
         subdirs = [self.factory.make_string() for _ in range(3)]
+        finder = self.make_finder(repos=subdirs, optimal_repos=True)
+        dirs = [self.factory.make_string() for _ in range(3)]
         get_dirs = self.patch(finder, '_get_dirs')
         get_dirs.return_value = dirs
         test_url = self.patch(finder, 'test_url')
         test_url.side_effect = itertools.cycle((False, True))
-        result = list(finder.get_binary_repos(subdirs, True))
+        result = list(finder.get_binary_repos())
         expected = [
             f"{centos.VAULT}/{dir}/{subdir}/x86_64/"
             for dir in dirs
-            for subdir in (tuple(subdirs) + centos.OPTIMAL_SEARCH)
+            for subdir in (centos.DEFAULT_SEARCH + centos.OPTIMAL_SEARCH)
         ]
         self.assertEqual(expected, result)
 
     def test__get_binary_repos_optimal_using_mirror(self):
-        finder = self.make_finder()
-        dirs = [self.factory.make_string() for _ in range(3)]
         subdirs = [self.factory.make_string() for _ in range(3)]
+        finder = self.make_finder(repos=subdirs, optimal_repos=True)
+        dirs = [self.factory.make_string() for _ in range(3)]
         get_dirs = self.patch(finder, '_get_dirs')
         get_dirs.return_value = dirs
         test_url = self.patch(finder, 'test_url')
         test_url.side_effect = itertools.cycle((False, False, True))
-        result = list(finder.get_binary_repos(subdirs, True))
+        result = list(finder.get_binary_repos())
         expected = [
             f"{centos.MIRROR}/{dir}/{subdir}/x86_64/os/"
             for dir in dirs
-            for subdir in (tuple(subdirs) + centos.OPTIMAL_SEARCH)
+            for subdir in (centos.DEFAULT_SEARCH + centos.OPTIMAL_SEARCH)
         ]
         self.assertEqual(expected, result)
 
     def test__get_binary_repos_optimal_old_style_using_mirror(self):
-        finder = self.make_finder()
-        dirs = [self.factory.make_string() for _ in range(3)]
         subdirs = [self.factory.make_string() for _ in range(3)]
+        finder = self.make_finder(repos=subdirs, optimal_repos=True)
+        dirs = [self.factory.make_string() for _ in range(3)]
         get_dirs = self.patch(finder, '_get_dirs')
         get_dirs.return_value = dirs
         test_url = self.patch(finder, 'test_url')
         test_url.side_effect = itertools.cycle((False, False, False, True))
-        result = list(finder.get_binary_repos(subdirs, True))
+        result = list(finder.get_binary_repos())
         expected = [
             f"{centos.MIRROR}/{dir}/{subdir}/x86_64/"
             for dir in dirs
-            for subdir in (tuple(subdirs) + centos.OPTIMAL_SEARCH)
+            for subdir in (centos.DEFAULT_SEARCH + centos.OPTIMAL_SEARCH)
         ]
         self.assertEqual(expected, result)
-
-    def test__walk_source_repos_reinits_generator(self):
-        # Force the finder to use the generator workflow
-        name = self.factory.make_string('name')
-        version = self.factory.make_string('version')
-        finder = self.make_finder(source_repos=None)
-        super_method = self.patch(yum.YumFinder, '_walk_source_repos')
-        generator_reinit = self.patch(finder, 'get_source_repos')
-        # Ensure that a fresh generator is spawned before walking repos
-        finder._walk_source_repos(name, version=version)
-        super_method.assert_called_once_with(name, version=version)
-        generator_reinit.assert_called_once_with(centos.DEFAULT_SEARCH, False)
-
-    def test__walk_source_repos_does_not_reinit_generator(self):
-        # The unit test default uses empty repo lists
-        name = self.factory.make_string('name')
-        version = self.factory.make_string('version')
-        finder = self.make_finder()
-        super_method = self.patch(yum.YumFinder, '_walk_source_repos')
-        generator_reinit = self.patch(finder, 'get_source_repos')
-        # Since there is no generator in play, no re-init should occur.
-        finder._walk_source_repos(name, version=version)
-        super_method.assert_called_once_with(name, version=version)
-        generator_reinit.assert_not_called()
-
-    def test__walk_binary_repos_reinits_generator(self):
-        # Force the finder to use the generator workflow
-        name = self.factory.make_string('name')
-        finder = self.make_finder(binary_repos=None)
-        super_method = self.patch(yum.YumFinder, '_walk_binary_repos')
-        generator_reinit = self.patch(finder, 'get_binary_repos')
-        # Ensure that a fresh generator is spawned before walking repos
-        finder._walk_binary_repos(name)
-        super_method.assert_called_once_with(name)
-        generator_reinit.assert_called_once_with(centos.DEFAULT_SEARCH, False)
-
-    def test__walk_binary_repos_does_not_reinit_generator(self):
-        # The unit test default uses empty repo lists
-        name = self.factory.make_string('name')
-        finder = self.make_finder()
-        super_method = self.patch(yum.YumFinder, '_walk_binary_repos')
-        generator_reinit = self.patch(finder, 'get_binary_repos')
-        # Since there is no generator in play, no re-init should occur.
-        finder._walk_binary_repos(name)
-        super_method.assert_called_once_with(name)
-        generator_reinit.assert_not_called()

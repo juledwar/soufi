@@ -62,7 +62,7 @@ class PhotonFinder(yum_finder.YumFinder):
 
         # Re-assemble a source package name, and try to fetch it from all
         # the source repos.  This is startlingly effective.
-        for repo in self.source_repos:
+        for repo in self.generate_source_repos():
             url = f"{repo.rstrip('/')}/{name}-{version}.src.rpm"
             if self.test_url(url):
                 return url

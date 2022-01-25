@@ -7,7 +7,7 @@ from unittest import mock
 
 import repomd
 import requests
-from testtools.matchers import Equals
+from testtools.matchers import Equals, SameMembers
 
 import soufi.exceptions
 from soufi.finder import SourceType
@@ -99,6 +99,22 @@ class TestYumFinder(BaseYumTest):
         disc_source = finder.find()
         self.assertIsInstance(disc_source, yum.YumDiscoveredSource)
         self.assertEqual([url], disc_source.urls)
+
+    def test_generate_repos_with_plain_list(self):
+        fallback = mock.MagicMock()
+        finder = self.make_finder()
+        repos = [self.factory.make_string() for _ in range(0, 3)]
+        result = finder.generate_repos(repos, fallback)
+        self.assertThat(result, SameMembers(repos))
+        fallback.assert_not_called()
+
+    def test_generate_repos_with_fallback(self):
+        fallback = mock.MagicMock()
+        repos_fallback = [self.factory.make_string() for _ in range(0, 3)]
+        fallback.return_value = repos_fallback
+        finder = self.make_finder()
+        result = finder.generate_repos(None, fallback)
+        self.assertThat(list(result), SameMembers(repos_fallback))
 
     def test_get_source_url(self):
         name = self.factory.make_string()
