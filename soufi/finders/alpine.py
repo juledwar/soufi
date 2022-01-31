@@ -1,7 +1,6 @@
 # Copyright (c) 2021 Cisco Systems, Inc. and its affiliates
 # All rights reserved.
 
-import functools
 import glob
 import hashlib
 import pathlib
@@ -66,20 +65,25 @@ class AlpineFinder(finder.SourceFinder):
         self.aports_dir = aports_dir
         super().__init__(*args, **kwargs)
 
-    @functools.lru_cache(maxsize=128)
     def _find_apkbuilds(self, aports_dir):
         """Given a starting dir, find all the APKBUILD files.
 
         :return: A dict mapping package names to the APKBUILD path.
         """
-        apkbuilds = {}
-        for apkbuild in glob.iglob(
-            f"{aports_dir}/**/*/APKBUILD", recursive=True
-        ):
-            path = Path(apkbuild)
-            package = path.parent.name
-            apkbuilds[package] = path
-        return apkbuilds
+
+        def inner(aports_dir):
+            apkbuilds = {}
+            for apkbuild in glob.iglob(
+                f"{aports_dir}/**/*/APKBUILD", recursive=True
+            ):
+                path = Path(apkbuild)
+                package = path.parent.name
+                apkbuilds[package] = path
+            return apkbuilds
+
+        return self._cache.get_or_create(
+            f"glob-{aports_dir}", inner, creator_args=([aports_dir], {})
+        )
 
     def _find_apkbuild_path(self, name):
         """Return the Path to the APKBUILD for package with 'name'."""

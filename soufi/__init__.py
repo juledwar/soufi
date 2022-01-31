@@ -6,8 +6,12 @@ import os
 import shutil
 
 import click
+import pylru
 
 from soufi import exceptions, finder
+
+# Configure a small-ish in-memory LRU cache to speed up operations
+LRU_CACHE = pylru.lrucache(size=512)
 
 
 class Finder:
@@ -21,7 +25,12 @@ class Finder:
     def ubuntu(cls, name, version):
         click.echo("Logging in to Launchpad")
         ubuntu_finder = finder.factory(
-            "ubuntu", name, version, finder.SourceType.os
+            "ubuntu",
+            name,
+            version,
+            finder.SourceType.os,
+            cache_backend='dogpile.cache.memory',
+            cache_args=dict(cache_dict=LRU_CACHE),
         )
         click.echo("Finding source in Launchpad")
         return cls.find(ubuntu_finder)
@@ -65,6 +74,8 @@ class Finder:
             optimal_repos=optimal,
             source_repos=source_repos,
             binary_repos=binary_repos,
+            cache_backend='dogpile.cache.memory',
+            cache_args=dict(cache_dict=LRU_CACHE),
         )
         return cls.find(centos_finder)
 
@@ -76,6 +87,8 @@ class Finder:
             version=version,
             s_type=finder.SourceType.os,
             aports_dir=aports_dir,
+            cache_backend='dogpile.cache.memory',
+            cache_args=dict(cache_dict=LRU_CACHE),
         )
         return cls.find(alpine_finder)
 
@@ -119,6 +132,8 @@ class Finder:
             s_type=finder.SourceType.os,
             source_repos=source_repos,
             binary_repos=binary_repos,
+            cache_backend='dogpile.cache.memory',
+            cache_args=dict(cache_dict=LRU_CACHE),
         )
         return cls.find(photon_finder)
 
@@ -131,6 +146,8 @@ class Finder:
             s_type=finder.SourceType.os,
             source_repos=source_repos,
             binary_repos=binary_repos,
+            cache_backend='dogpile.cache.memory',
+            cache_args=dict(cache_dict=LRU_CACHE),
         )
         return cls.find(rhel_finder)
 

@@ -2,8 +2,10 @@
 # All rights reserved.
 
 import abc
-import functools
+import lzma
 import urllib
+from multiprocessing import Process, Queue
+from types import SimpleNamespace
 
 import repomd
 import requests
@@ -67,17 +69,14 @@ class YumFinder(finder.SourceFinder, metaclass=abc.ABCMeta):
         return YumDiscoveredSource([source_url])
 
     def get_source_url(self):
-        # The easy part: try to find the package in the source repos.
-        url = self._walk_source_repos(self.name)
-        if url is None:
-            # The hard part: try to find the package in the binary repos,
-            # then backtrack into the source repos with the name and version
-            # of the SRPM provided
-            source_name, source_ver = self._walk_binary_repos(self.name)
-            if source_name is None:
-                raise exceptions.SourceNotFound
+        # Try to find the package in the binary repos, then backtrack into
+        # the source repos with the name and version of the SRPM provided.
+        # This is, in aggregate, faster than looking up the source first.
+        source_name, source_ver = self._walk_binary_repos(self.name)
+        if source_name is None:
+            raise exceptions.SourceNotFound
 
-            url = self._walk_source_repos(source_name, source_ver)
+        url = self._walk_source_repos(source_name, source_ver)
         if url is None:
             raise exceptions.SourceNotFound
 
@@ -90,44 +89,49 @@ class YumFinder(finder.SourceFinder, metaclass=abc.ABCMeta):
     def _walk_source_repos(self, name, version=None):
         if version is None:
             version = self.version
-        packages = []
+        locations = set()
         for repo_url in self.generate_source_repos():
-            repo = self._get_repo(repo_url)
-            if repo is None:
-                continue
-            for package in repo.findall(name):
+            baseurl, repo_xml = self._cache.get_or_create(
+                f"repo-{repo_url}",
+                do_task,
+                creator_args=([get_repomd, repo_url], {}),
+            )
+            for package in do_task(lookup_in_repomd, baseurl, repo_xml, name):
                 # If the package version in the repomd is our version,
                 # it's easy.  Note that we want to match epoch-full and
                 # epoch-less version formats.
                 if version in (package.evr, package.vr):
-                    return repo.baseurl + package.location
+                    return str(baseurl + package.location)
                 # Otherwise let's make it weird
-                packages.append(package)
+                locations.add(
+                    str(package.location.replace(package.vr, version))
+                )
 
-            # If we've made it here, things have gotten weird.  Replace the
-            # version+release info in all unique package locations with our
-            # version and see if they exist.  This should find superseded
-            # packages that are present in the repo, but not in the repomd.
-            locs = set(p.location.replace(p.vr, version) for p in packages)
-            for loc in locs:
-                if self.test_url(repo.baseurl + loc):
-                    return repo.baseurl + loc
+                # If we've made it here, things have gotten weird.  Replace the
+                # version+release info in all unique package locations with our
+                # version and see if they exist.  This should find superseded
+                # packages that are present in the repo, but not in the repomd.
+                for location in locations:
+                    if self.test_url(baseurl + location):
+                        return str(baseurl + location)
         return None
 
     def _walk_binary_repos(self, name):
-        packages = []
+        packages = set()
         for repo_url in self.generate_binary_repos():
-            repo = self._get_repo(repo_url)
-            if repo is None:
-                continue
-            for package in repo.findall(name):
-                # If we have a binary package matching our version, but with
-                # a different name than the corresponding source package,
-                # return the NVR fields
+            baseurl, repo_xml = self._cache.get_or_create(
+                f"repo-{repo_url}",
+                do_task,
+                creator_args=([get_repomd, repo_url], {}),
+            )
+            for package in do_task(lookup_in_repomd, baseurl, repo_xml, name):
+                # If we have a binary package matching our version, but
+                # with a different name than the corresponding source
+                # package, return the NVR fields
                 if self.version in (package.evr, package.vr):
                     return self._nevra_or_none(package)
                 # Otherwise let's make it weird
-                packages.append(package)
+                packages.add(self._nevra_or_none(package))
 
         # If we've made it here, things have gotten weird; this should be
         # the case of a source RPM that produces binary RPMs with different
@@ -138,25 +142,14 @@ class YumFinder(finder.SourceFinder, metaclass=abc.ABCMeta):
             [package] = packages
         except ValueError:
             return None, None
-        return self._nevra_or_none(package)
+        return package
 
     def _nevra_or_none(self, package):
         if package.sourcerpm == '':
             # It's here, but has no sources defined!  Bummer...
             return None, None
-        nevra = self._get_nevra(package.sourcerpm)
+        nevra = self._get_nevra(str(package.sourcerpm))
         return nevra['name'], f"{nevra['ver']}-{nevra['rel']}"
-
-    # Cache repo downloads as they are slow and network-bound.
-    @classmethod
-    @functools.lru_cache(maxsize=1024)
-    def _get_repo(cls, url):
-        if not url.endswith('/'):
-            url += '/'
-        try:
-            return repomd.load(url)
-        except urllib.error.HTTPError:
-            return None
 
     # TODO(nic): throw this out and use hawkey/libdnf whenever that finally
     #  stabilizes.  See: https://github.com/juledwar/soufi/issues/13
@@ -187,29 +180,32 @@ class YumFinder(finder.SourceFinder, metaclass=abc.ABCMeta):
 
     # Use this wrapper for doing HTTP HEAD requests, as it will swallow
     # Timeout exceptions, but cache other lookups.
-    @classmethod
-    def test_url(cls, url):
+    def test_url(self, url):
         try:
-            return cls._head_url(url)
+            return self._head_url(url)
         except requests.exceptions.Timeout:
             return False
 
-    # Generally we just want functools.cache here, but a strictly unbounded
-    # cache is just a bad idea
-    @classmethod
-    @functools.lru_cache(maxsize=1048576)
-    def _head_url(cls, url):
-        response = requests.head(url, timeout=TIMEOUT)
-        return response.status_code == requests.codes.ok
+    def _head_url(self, url):
+        def inner(url):
+            response = requests.head(url, timeout=TIMEOUT)
+            return response.status_code == requests.codes.ok
 
-    @classmethod
-    @functools.lru_cache(maxsize=128)
-    def get_url(cls, url):
+        return self._cache.get_or_create(
+            f"head-{url}", inner, creator_args=([url], {})
+        )
+
+    def get_url(self, url):
         # Not used directly by this class, but subclasses tend to need it.
-        response = requests.get(url, timeout=TIMEOUT)
-        if response.status_code != requests.codes.ok:
-            raise exceptions.DownloadError(response.reason)
-        return response.content
+        def inner(url):
+            response = requests.get(url, timeout=TIMEOUT)
+            if response.status_code != requests.codes.ok:
+                raise exceptions.DownloadError(response.reason)
+            return response.content
+
+        return self._cache.get_or_create(
+            f"get-{url}", inner, creator_args=([url], {})
+        )
 
 
 class YumDiscoveredSource(finder.DiscoveredSource):
@@ -224,3 +220,71 @@ class YumDiscoveredSource(finder.DiscoveredSource):
 
     def __repr__(self):
         return self.urls[0]
+
+
+# NOTE(nic): repomd objects require extra-special care and handling.  They
+#  are thin wrappers around ElementTree objects, which means they use an
+#  obnoxious amount of memory, are notoriously hostile to being pickled,
+#  and are also averse to being automagically garbage-collected when they go
+#  out of scope.  This puts them at odds with our caching strategy,
+#  and makes them less-than-ideal for use inside long-running processes.
+#
+#  To deal with the dearth of effective memory management, we will run
+#  all repomd lookups in subprocesses, that will return any/all "needles"
+#  found in the "haystacks" we provide.  This will let the OS
+#  efficiently reclaim all the pages used upon completion.
+def do_task(target, *args):
+    """Run the target callable in a subprocess and return its response."""
+    queue = Queue()
+    process = Process(target=target, args=(queue,) + args)
+    process.start()
+    response = queue.get()
+    if process.is_alive():
+        process.terminate()
+    return response
+
+
+# NOTE(nic): To allow for serializing repomd objects, We will instead
+#  re-serialize the object into its original XML, then re-create and use a
+#  new Repo object from the cached XML on every cache hit.  This makes cache
+#  hits relatively expensive, but they're still orders of magnitude faster
+#  than the alternative.  The XML is LZMA-compressed here to keep cache
+#  storage utilization low, and in the case of Redis caching, to reduce the
+#  amount of cache traffic sent over the wire.
+def get_repomd(queue, url):
+    if not url.endswith('/'):
+        url += '/'
+    try:
+        repo = repomd.load(url)
+    except urllib.error.HTTPError:
+        queue.put((None, None))
+        return
+    payload = repomd.defusedxml.lxml.tostring(repo._metadata)
+    queue.put((str(repo.baseurl), lzma.compress(payload)))
+
+
+# NOTE(nic): repomd.Package object properties do XPath lookups into the
+#  ElementTree and other similar tricks on the backend, which makes them
+#  unsuitable for the IPC-based workflow we're trying to use, so we'll
+#  convert them into simple objects with identical names so that they can be
+#  easily pickled and passed around.  The upside is that we only need to
+#  carry over what we need to do package lookups.  The downside is that we only
+#  get what we've carried over.
+def serialize_package(package):
+    return SimpleNamespace(
+        name=str(package.name),
+        version=str(package.version),
+        vr=str(package.vr),
+        evr=str(package.evr),
+        location=str(package.location),
+        sourcerpm=str(package.sourcerpm),
+    )
+
+
+def lookup_in_repomd(queue, baseurl, repomd_xml, name):
+    if None in (baseurl, repomd_xml):
+        queue.put([])
+        return
+    payload = lzma.decompress(repomd_xml)
+    repo = repomd.Repo(baseurl, repomd.defusedxml.lxml.fromstring(payload))
+    queue.put([serialize_package(p) for p in repo.findall(name)])

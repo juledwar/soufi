@@ -1,15 +1,31 @@
 # Copyright (c) 2021 Cisco Systems, Inc. and its affiliates
 # All rights reserved.
 
+import logging
+
 import testtools
 
 from soufi import finder
 from soufi.finder import SourceType
 
+# Setup a module-level cache dict so that it can be warmed up and re-used
+# between tests
+FUNCTEST_CACHE = dict()
+
+# These tests will use the `memory_pickle` cache backend, which
+# serializes the cache payload before storing it; this should surface
+# any obvious problems with the other serializing cache backends
+# without forcing them as a dependency.
+
 
 class FunctionalFinderTests(testtools.TestCase):
     def setUp(self):
         self.skipTest("functional tests disabled for unit test runs")
+        # Enable dogpile.cache logging so we can eyeball the cache
+        # population steps
+        logging.basicConfig()
+        logging.getLogger("dogpile.cache").setLevel(logging.DEBUG)
+        super().setUp()
 
     def test_find_photon_superseded_package(self):
         photon = finder.factory(
@@ -17,6 +33,8 @@ class FunctionalFinderTests(testtools.TestCase):
             name='curl-libs',
             version='7.75.0-2.ph4',
             s_type=SourceType.os,
+            cache_backend='dogpile.cache.memory_pickle',
+            cache_args=dict(cache_dict=FUNCTEST_CACHE),
         )
         url = 'https://packages.vmware.com/photon/4.0/photon_srpms_4.0_x86_64/curl-7.75.0-2.ph4.src.rpm'  # noqa: E501
         result = photon.find()
@@ -30,6 +48,8 @@ class FunctionalFinderTests(testtools.TestCase):
             name='device-mapper-libs',
             version='1.02.175-5.el8',
             s_type=SourceType.os,
+            cache_backend='dogpile.cache.memory_pickle',
+            cache_args=dict(cache_dict=FUNCTEST_CACHE),
         )
         url = 'https://vault.centos.org/centos/8.4.2105/BaseOS/Source/SPackages/lvm2-2.03.11-5.el8.src.rpm'  # noqa: E501
         result = centos.find()
@@ -42,6 +62,8 @@ class FunctionalFinderTests(testtools.TestCase):
             name='device-mapper-libs',
             version='8:1.02.175-5.el8',
             s_type=SourceType.os,
+            cache_backend='dogpile.cache.memory_pickle',
+            cache_args=dict(cache_dict=FUNCTEST_CACHE),
         )
         url = 'https://vault.centos.org/centos/8.4.2105/BaseOS/Source/SPackages/lvm2-2.03.11-5.el8.src.rpm'  # noqa: E501
         result = centos.find()
@@ -55,6 +77,8 @@ class FunctionalFinderTests(testtools.TestCase):
             name='bind-license',
             version='32:9.11.4-26.P2.el7',
             s_type=SourceType.os,
+            cache_backend='dogpile.cache.memory_pickle',
+            cache_args=dict(cache_dict=FUNCTEST_CACHE),
         )
         url = 'https://vault.centos.org/centos/7.9.2009/os/Source/SPackages/bind-9.11.4-26.P2.el7.src.rpm'  # noqa: E501
         result = centos.find()
@@ -68,6 +92,8 @@ class FunctionalFinderTests(testtools.TestCase):
             name='vim-minimal',
             version='7.4.629-8.el7_9',
             s_type=SourceType.os,
+            cache_backend='dogpile.cache.memory_pickle',
+            cache_args=dict(cache_dict=FUNCTEST_CACHE),
         )
         url = 'https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi/server/7/7Server/x86_64/source/SRPMS/Packages/v/vim-7.4.629-8.el7_9.src.rpm'  # noqa: E501
         result = rhel.find()
@@ -80,6 +106,8 @@ class FunctionalFinderTests(testtools.TestCase):
             name='vim-minimal',
             version='2:7.4.629-8.el7_9',
             s_type=SourceType.os,
+            cache_backend='dogpile.cache.memory_pickle',
+            cache_args=dict(cache_dict=FUNCTEST_CACHE),
         )
         url = 'https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi/server/7/7Server/x86_64/source/SRPMS/Packages/v/vim-7.4.629-8.el7_9.src.rpm'  # noqa: E501
         result = rhel.find()
