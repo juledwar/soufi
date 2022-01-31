@@ -1,5 +1,6 @@
 # Copyright (c) 2021 Cisco Systems, Inc. and its affiliates
 # All rights reserved.
+import lzma
 import string
 import urllib
 from itertools import repeat
@@ -118,39 +119,31 @@ class TestYumFinder(BaseYumTest):
 
     def test_get_source_url(self):
         name = self.factory.make_string()
-        url = self.factory.make_url()
-        finder = self.make_finder(name=name)
-        walk_src = self.patch(finder, '_walk_source_repos')
-        walk_src.return_value = url
-        self.patch(finder, 'test_url').return_value = True
-        self.assertEqual(url, finder.get_source_url())
-        walk_src.assert_called_once_with(name)
-
-    def test_get_source_url_binary_package(self):
-        name = self.factory.make_string()
         ver = self.factory.make_semver(extra=self.factory.make_string("-"))
         url = self.factory.make_url()
         finder = self.make_finder(name=name, version=ver)
         walk_src = self.patch(finder, '_walk_source_repos')
-        walk_src.side_effect = (None, url)
+        walk_src.return_value = url
         walk_binary = self.patch(finder, '_walk_binary_repos')
         walk_binary.return_value = name, ver
         self.patch(finder, 'test_url').return_value = True
         self.assertEqual(url, finder.get_source_url())
         walk_binary.assert_called_once_with(name)
-        walk_src.assert_has_calls([mock.call(name), mock.call(name, ver)])
+        walk_src.assert_called_once_with(name, ver)
 
-    def test_get_source_url_raises_on_no_source(self):
+    def test_get_source_url_raises_on_no_binary_package(self):
         name = self.factory.make_string()
         finder = self.make_finder(name=name)
         walk_src = self.patch(finder, '_walk_source_repos')
-        walk_src.return_value = None
+        walk_binary = self.patch(finder, '_walk_binary_repos')
+        walk_binary.return_value = (None, None)
         self.assertRaises(
             soufi.exceptions.SourceNotFound, finder.get_source_url
         )
-        walk_src.assert_called_once_with(name)
+        walk_binary.assert_called_once_with(name)
+        walk_src.assert_not_called()
 
-    def test_get_source_url_raises_on_no_source_2(self):
+    def test_get_source_url_raises_on_no_source(self):
         name = self.factory.make_string()
         finder = self.make_finder(name=name)
         walk_src = self.patch(finder, '_walk_source_repos')
@@ -161,54 +154,55 @@ class TestYumFinder(BaseYumTest):
             soufi.exceptions.SourceNotFound, finder.get_source_url
         )
         walk_binary.assert_called_once_with(name)
-        walk_src.assert_has_calls([mock.call(name), mock.call(name, None)])
+        walk_src.assert_called_once_with(name, None)
 
     def test_get_source_url_raises_on_invalid_source(self):
         name = self.factory.make_string()
         url = self.factory.make_url()
         finder = self.make_finder(name=name)
+        walk_binary = self.patch(finder, '_walk_binary_repos')
+        walk_binary.return_value = (name, None)
         walk_src = self.patch(finder, '_walk_source_repos')
         walk_src.return_value = url
         self.patch(finder, 'test_url').return_value = False
         self.assertRaises(
             soufi.exceptions.SourceNotFound, finder.get_source_url
         )
-        walk_src.assert_called_once_with(name)
+        walk_binary.assert_called_once_with(name)
+        walk_src.assert_called_once_with(name, None)
 
     def test__walk_source_repos(self):
+        baseurl = self.factory.make_url()
         src = [self.factory.make_url(), self.factory.make_url()]
         bin = [self.factory.make_url(), self.factory.make_url()]
         finder = self.make_finder(source_repos=src, binary_repos=bin)
-        repo = mock.MagicMock()
-        repo.baseurl = self.factory.make_url()
         package = self.FakePackage(vr=finder.version)
-        repo.findall.return_value = [package]
-        self.patch(finder, '_get_repo').side_effect = (None, repo)
+        do_task = self.patch(yum, 'do_task')
+        do_task.side_effect = ([baseurl, None], [package])
         self.patch(finder, 'test_url').return_value = False
         url = finder._walk_source_repos(finder.name)
-        self.assertEqual(repo.baseurl + package.location, url)
+        self.assertEqual(baseurl + package.location, url)
 
     def test__walk_source_repos_different_version_hit(self):
+        baseurl = self.factory.make_url()
         src = [self.factory.make_url()]
         bin = [self.factory.make_url()]
         finder = self.make_finder(source_repos=src, binary_repos=bin)
-        repo = mock.MagicMock()
-        repo.baseurl = self.factory.make_url()
         package = self.FakePackage()
-        repo.findall.return_value = [package]
-        self.patch(finder, '_get_repo').return_value = repo
+        do_task = self.patch(yum, 'do_task')
+        do_task.side_effect = ([baseurl, None], [package])
         self.patch(finder, 'test_url').return_value = True
         url = finder._walk_source_repos(finder.name)
-        self.assertEqual(repo.baseurl + package.location, url)
+        self.assertEqual(baseurl + package.location, url)
 
     def test__walk_source_repos_different_version_miss(self):
+        baseurl = self.factory.make_url()
         src = [self.factory.make_url()]
         bin = [self.factory.make_url()]
         finder = self.make_finder(source_repos=src, binary_repos=bin)
-        repo = mock.MagicMock()
         package = self.FakePackage()
-        repo.findall.return_value = [package]
-        self.patch(finder, '_get_repo').return_value = repo
+        do_task = self.patch(yum, 'do_task')
+        do_task.side_effect = ([baseurl, None], [package])
         self.patch(finder, 'test_url').return_value = False
         url = finder._walk_source_repos(finder.name)
         self.assertIsNone(url)
@@ -217,15 +211,13 @@ class TestYumFinder(BaseYumTest):
         src = [self.factory.make_url(), self.factory.make_url()]
         bin = [self.factory.make_url(), self.factory.make_url()]
         finder = self.make_finder(source_repos=src, binary_repos=bin)
-        repo = mock.MagicMock()
-        repo.baseurl = self.factory.make_url()
         n = self.factory.make_string()
         v = self.factory.make_semver()
         r = self.factory.randint(0, 100)
         srcrpm = self.make_package(n=n, v=v, r=r)
         package = self.FakePackage(vr=finder.version, sourcerpm=srcrpm)
-        repo.findall.return_value = [package]
-        self.patch(finder, '_get_repo').side_effect = (None, repo)
+        do_task = self.patch(yum, 'do_task')
+        do_task.side_effect = ([None, None], [package])
         name, version = finder._walk_binary_repos(finder.name)
         self.expectThat(name, Equals(n))
         self.expectThat(version, Equals(f"{v}-{r}"))
@@ -234,10 +226,9 @@ class TestYumFinder(BaseYumTest):
         src = [self.factory.make_url()]
         bin = [self.factory.make_url()]
         finder = self.make_finder(source_repos=src, binary_repos=bin)
-        repo = mock.MagicMock()
         package = self.FakePackage(vr=finder.version, sourcerpm='')
-        repo.findall.return_value = [package]
-        self.patch(finder, '_get_repo').return_value = repo
+        do_task = self.patch(yum, 'do_task')
+        do_task.side_effect = ([None, None], [package])
         name, version = finder._walk_binary_repos(finder.name)
         self.assertIsNone(name)
         self.assertIsNone(version)
@@ -246,10 +237,10 @@ class TestYumFinder(BaseYumTest):
         src = [self.factory.make_url()]
         bin = [self.factory.make_url()]
         finder = self.make_finder(source_repos=src, binary_repos=bin)
-        repo = mock.MagicMock()
-        package = self.FakePackage()
-        repo.findall.return_value = [package, package]
-        self.patch(finder, '_get_repo').return_value = repo
+        package1 = self.FakePackage()
+        package2 = self.FakePackage()
+        do_task = self.patch(yum, 'do_task')
+        do_task.side_effect = ([None, None], [package1, package2])
         name, version = finder._walk_binary_repos(finder.name)
         self.assertIsNone(name)
         self.assertIsNone(version)
@@ -258,20 +249,19 @@ class TestYumFinder(BaseYumTest):
         src = [self.factory.make_url()]
         bin = [self.factory.make_url()]
         finder = self.make_finder(source_repos=src, binary_repos=bin)
-        repo = mock.MagicMock()
         n = self.factory.make_string()
         v = self.factory.make_semver()
         r = self.factory.randint(0, 100)
         srcrpm = self.make_package(n=n, v=v, r=r)
         package = self.FakePackage(sourcerpm=srcrpm)
-        repo.findall.return_value = [package]
-        self.patch(finder, '_get_repo').return_value = repo
+        do_task = self.patch(yum, 'do_task')
+        do_task.side_effect = ([None, None], [package])
         name, version = finder._walk_binary_repos(finder.name)
         self.expectThat(name, Equals(n))
         self.expectThat(version, Equals(f"{v}-{r}"))
 
 
-class TestYumFinderHelpers(BaseYumTest):
+class TestYumFinderClassHelpers(BaseYumTest):
     def test__nevra_or_none_returns_nevra(self):
         name = self.factory.make_string()
         ver = self.factory.make_semver()
@@ -286,13 +276,6 @@ class TestYumFinderHelpers(BaseYumTest):
         package.sourcerpm = ''
         finder = self.make_finder()
         self.assertEqual((None, None), finder._nevra_or_none(package))
-
-    def test__get_repo_returns_none(self):
-        url = self.factory.make_url()
-        rmd = self.patch(repomd, 'load')
-        rmd.side_effect = urllib.error.HTTPError(None, None, None, None, None)
-        finder = self.make_finder()
-        self.assertIsNone(finder._get_repo(url))
 
     def test__get_nevra(self):
         filename = self.make_package()
@@ -338,7 +321,83 @@ class TestYumFinderHelpers(BaseYumTest):
         self.assertFalse(finder.test_url(url))
 
 
-class TestYumsDiscoveredSource(base.TestCase):
+class TestYumFinderHelpers(BaseYumTest):
+    def test_get_repomd(self):
+        url = self.factory.make_url()
+        queue = mock.MagicMock()
+        repo = self.patch(repomd, 'load')
+        lxml = self.patch(repomd.defusedxml.lxml, 'tostring')
+        lxml.return_value = b"<xml>Test</xml>"
+        compress = self.patch(lzma, 'compress')
+        yum.get_repomd(queue, url)
+        compress.assert_called_once_with(lxml.return_value)
+        queue.put.assert_called_once_with(
+            (str(repo.return_value.baseurl), compress.return_value)
+        )
+
+    def test_get_repomd_http_error(self):
+        url = self.factory.make_url()
+        queue = mock.MagicMock()
+        self.patch(repomd, 'load').side_effect = urllib.error.HTTPError(
+            None, None, None, None, None
+        )
+        lxml = self.patch(repomd.defusedxml.lxml, 'tostring')
+        compress = self.patch(lzma, 'compress')
+        yum.get_repomd(queue, url)
+        lxml.assert_not_called()
+        compress.assert_not_called()
+        queue.put.assert_called_once_with((None, None))
+
+    def test_lookup_in_repomd(self):
+        queue = mock.MagicMock()
+        package = mock.MagicMock()
+        baseurl = self.factory.make_url()
+        repomd_xml = self.factory.make_string()
+        name = self.factory.make_string()
+        decompress = self.patch(lzma, 'decompress')
+        lxml = self.patch(repomd.defusedxml.lxml, 'fromstring')
+        repo = self.patch(repomd, 'Repo')
+        repo.return_value.findall.return_value = [package]
+        yum.lookup_in_repomd(queue, baseurl, repomd_xml, name)
+        decompress.assert_called_once_with(repomd_xml)
+        lxml.assert_called_once_with(decompress.return_value)
+        repo.assert_called_once_with(baseurl, lxml.return_value)
+        queue.put.assert_called_once_with([yum.serialize_package(package)])
+
+    def test_lookup_in_repomd_no_baseurl(self):
+        queue = mock.MagicMock()
+        repomd_xml = self.factory.make_string()
+        name = self.factory.make_string()
+        decompress = self.patch(lzma, 'decompress')
+        repo = self.patch(repomd, 'Repo')
+        yum.lookup_in_repomd(queue, None, repomd_xml, name)
+        decompress.assert_not_called()
+        repo.assert_not_called()
+        queue.put.assert_called_once_with([])
+
+    def test_lookup_in_repomd_no_repoxml(self):
+        queue = mock.MagicMock()
+        baseurl = self.factory.make_url()
+        name = self.factory.make_string()
+        decompress = self.patch(lzma, 'decompress')
+        repo = self.patch(repomd, 'Repo')
+        yum.lookup_in_repomd(queue, baseurl, None, name)
+        decompress.assert_not_called()
+        repo.assert_not_called()
+        queue.put.assert_called_once_with([])
+
+    def test_do_task(self):
+        data = self.factory.make_string('response')
+        queue = self.patch(yum, 'Queue')
+        queue.return_value.get.return_value = data
+        process = self.patch(yum, 'Process')
+        process.return_value.is_alive.return_value = True
+        response = yum.do_task('a', 'b', 'c')
+        self.assertEqual(data, response)
+        process.return_value.terminate.assert_called_once_with()
+
+
+class TestYumDiscoveredSource(base.TestCase):
     def make_discovered_source(self, url=None):
         if url is None:
             url = self.factory.make_url()

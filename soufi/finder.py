@@ -10,9 +10,10 @@ import pkgutil
 import tarfile
 import tempfile
 from inspect import isclass
-from typing import BinaryIO, ContextManager, Iterable, Union
+from typing import Any, BinaryIO, ContextManager, Iterable, Mapping, Union
 
 import requests
+from dogpile.cache import make_region
 
 from soufi import exceptions
 
@@ -161,6 +162,10 @@ class SourceFinder(metaclass=abc.ABCMeta):
     :param name: Name of the source package to find
     :param version: Version of the source package to find
     :param s_type: A SourceType indicating the type of package
+    :param cache_backend: A string containing the name of a registered
+        dogpile.cache backend.  Default: `dogpile.cache.null`, or no caching.
+    :param cache_args: An iterable of arguments to use when initializing the
+        cache.
 
     These options may be left unspecified if required and the call to
     `find()` should then specify any that were not passed to `__init__`.
@@ -172,11 +177,20 @@ class SourceFinder(metaclass=abc.ABCMeta):
         raise NotImplementedError  # pragma: no cover
 
     def __init__(
-        self, name: str = None, version: str = None, s_type: SourceType = None
+        self,
+        name: str = None,
+        version: str = None,
+        s_type: SourceType = None,
+        cache_backend: str = 'dogpile.cache.null',
+        cache_args: Mapping[str, Any] = None,
     ):
         self.name = name
         self.version = version
         self.s_type = s_type
+
+        self._cache = make_region(
+            key_mangler=lambda key: 'soufi/' + key
+        ).configure(cache_backend, arguments=cache_args)
 
     def find(
         self, name: str = None, version: str = None, s_type: SourceType = None

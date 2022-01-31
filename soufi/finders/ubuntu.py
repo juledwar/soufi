@@ -1,7 +1,6 @@
 # Copyright (c) 2021 Cisco Systems, Inc. and its affiliates
 # All rights reserved.
 
-import functools
 import pathlib
 
 from launchpadlib.launchpad import Launchpad
@@ -26,22 +25,22 @@ class UbuntuFinder(finder.SourceFinder):
         urls = tuple(sorted(source.sourceFileUrls()))
         return UbuntuDiscoveredSource(urls)
 
-    # NOTE(nic): workaround an apparent bug in Python 3.6 where the default
-    #  maxsize for the functools.lru_cache decorator does not work
-    @classmethod
-    @functools.lru_cache(maxsize=128)
-    def get_archive(cls):
+    def get_archive(self):
         """Retrieve, and cache, the LP distro main archive object."""
-        cachedir = pathlib.Path.home().joinpath(".launchpadlib", "cache")
-        lp = Launchpad.login_anonymously(
-            "soufi",
-            "production",
-            cachedir,
-            version="devel",
-            timeout=API_TIMEOUT,
-        )
-        distribution = lp.distributions[cls.distro]
-        return distribution.main_archive
+
+        def inner():
+            cachedir = pathlib.Path.home().joinpath(".launchpadlib", "cache")
+            lp = Launchpad.login_anonymously(
+                "soufi",
+                "production",
+                cachedir,
+                version="devel",
+                timeout=API_TIMEOUT,
+            )
+            distribution = lp.distributions[self.distro]
+            return distribution.main_archive
+
+        return self._cache.get_or_create('get_archive', inner)
 
     def get_build(self):
         bins = self.lp_archive.getPublishedBinaries(
