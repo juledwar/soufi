@@ -1,13 +1,11 @@
 # Copyright (c) 2021 Cisco Systems, Inc. and its affiliates
 # All rights reserved.
 
-import requests
 
 from soufi import exceptions, finder
 
 MAVEN_SEARCH_URL = 'https://search.maven.org/solrsearch/select'
 MAVEN_REPO_URL = 'https://search.maven.org/remotecontent'
-API_TIMEOUT = 30  # seconds
 
 
 class JavaFinder(finder.SourceFinder):
@@ -20,23 +18,21 @@ class JavaFinder(finder.SourceFinder):
 
     def _find(self):
         source_url = self.get_source_url()
-        return JavaDiscoveredSource([source_url])
+        return JavaDiscoveredSource([source_url], timeout=self.timeout)
 
     def get_source_url(self):
         """Construct a URL from the JSON response for the search."""
         params = dict(q=f'a:{self.name} v:{self.version} l:sources', rows=1)
-        search = requests.get(
-            MAVEN_SEARCH_URL, params=params, timeout=API_TIMEOUT
-        )
         # NOTE(nic): empirical observation of throwing "bad" queries at this
         #  thing lead me to believe this will only ever return 200 OK unless
         #  the query string is literally corrupted; if you pass in a
         #  syntactically valid search string for a resource that does not
         #  exist, the response content simply contains a completely
         #  unrelated record.  :-(
-        if search.status_code != requests.codes.ok:
+        try:
+            data = self.get_url(MAVEN_SEARCH_URL, params=params).json()
+        except exceptions.DownloadError:
             raise exceptions.SourceNotFound
-        data = search.json()
 
         # Transform the `group` attribute and use it to put together a
         # resource URL from the other data we have.  If it resolves, return
@@ -47,15 +43,12 @@ class JavaFinder(finder.SourceFinder):
             filepath=f'{group}/{self.name}/{self.version}/'
             f'{self.name}-{self.version}-sources.jar'
         )
-        resource = requests.head(
-            MAVEN_REPO_URL,
-            params=params,
-            allow_redirects=True,
-            timeout=API_TIMEOUT,
+        found = self.test_url(
+            MAVEN_REPO_URL, params=params, allow_redirects=True
         )
-        if resource.status_code != requests.codes.ok:
+        if not found:
             raise exceptions.SourceNotFound
-        return resource.url
+        return found.url
 
 
 class JavaDiscoveredSource(finder.DiscoveredSource):

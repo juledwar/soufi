@@ -77,17 +77,15 @@ class TestPhotonFinder(BasePhotonTest):
             photon.PHOTON_PACKAGES + '/' + top_repos[0] + repos[5],
         ]
         self.assertEqual(expected, result)
+        # fmt: off
         get.assert_has_calls(
             [
                 mock.call(photon.PHOTON_PACKAGES, timeout=30),
-                mock.call(
-                    photon.PHOTON_PACKAGES + '/' + top_repos[1], timeout=30
-                ),
-                mock.call(
-                    photon.PHOTON_PACKAGES + '/' + top_repos[0], timeout=30
-                ),
+                mock.call(photon.PHOTON_PACKAGES + '/' + top_repos[1], timeout=30),  # noqa: E501
+                mock.call(photon.PHOTON_PACKAGES + '/' + top_repos[0], timeout=30),  # noqa: E501
             ]
         )
+        # fmt: on
 
     def test__get_source_repos_top_level_failure_throws_exception(self):
         finder = self.make_finder()
@@ -146,17 +144,15 @@ class TestPhotonFinder(BasePhotonTest):
         ]
         result = finder.get_binary_repos()
         self.assertEqual(expected, result)
+        # fmt: off
         get.assert_has_calls(
             [
                 mock.call(photon.PHOTON_PACKAGES, timeout=30),
-                mock.call(
-                    photon.PHOTON_PACKAGES + '/' + top_repos[1], timeout=30
-                ),
-                mock.call(
-                    photon.PHOTON_PACKAGES + '/' + top_repos[0], timeout=30
-                ),
+                mock.call(photon.PHOTON_PACKAGES + '/' + top_repos[1], timeout=30),  # noqa: E501
+                mock.call(photon.PHOTON_PACKAGES + '/' + top_repos[0], timeout=30),  # noqa: E501
             ]
         )
+        # fmt: on
 
     def test__get_binary_repos_top_level_failure_throws_exception(self):
         finder = self.make_finder()

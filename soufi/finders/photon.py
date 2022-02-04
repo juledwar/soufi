@@ -21,7 +21,7 @@ class PhotonFinder(yum_finder.YumFinder):
     distro = finder.Distro.photon.value
 
     def _get_dirs(self):
-        content = self.get_url(PHOTON_PACKAGES)
+        content = self.get_url(PHOTON_PACKAGES).content
         tree = html.fromstring(content)
         retval = tree.xpath('//a/text()')
         return reversed([dir for dir in retval if dir[0].isdigit()])
@@ -31,7 +31,7 @@ class PhotonFinder(yum_finder.YumFinder):
         for release_dir in self._get_dirs():
             url = f"{PHOTON_PACKAGES}/{release_dir}"
             try:
-                content = self.get_url(url)
+                content = self.get_url(url).content
             except soufi.exceptions.DownloadError:
                 continue
             tree = html.fromstring(content)

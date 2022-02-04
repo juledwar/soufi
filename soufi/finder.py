@@ -11,11 +11,14 @@ import tarfile
 import tempfile
 from inspect import isclass
 from typing import Any, BinaryIO, ContextManager, Iterable, Mapping, Union
+from urllib.parse import urlencode
 
 import requests
 from dogpile.cache import make_region
 
 from soufi import exceptions
+
+DEFAULT_TIMEOUT = 30  # seconds
 
 
 @enum.unique
@@ -46,8 +49,9 @@ class DiscoveredSource(metaclass=abc.ABCMeta):
     # necessary if make_archive is also overridden.
     archive_extension = '.tar.xz'
 
-    def __init__(self, urls: Iterable[str]):
+    def __init__(self, urls: Iterable[str], timeout: int = DEFAULT_TIMEOUT):
         self._urls = urls
+        self.timeout = timeout
 
     @property
     def urls(self):
@@ -116,7 +120,6 @@ class DiscoveredSource(metaclass=abc.ABCMeta):
         target_dir: str,
         target_name: str,
         url: str,
-        timeout: int = None,
     ) -> pathlib.Path:
         """Download a file from a URL and place it in a directory.
 
@@ -132,7 +135,7 @@ class DiscoveredSource(metaclass=abc.ABCMeta):
         NOTE: No decoding is performed on the file, it is saved as raw.
         """
         tmp_file_name = pathlib.Path(target_dir) / target_name
-        with requests.get(url, stream=True, timeout=timeout) as response:
+        with requests.get(url, stream=True, timeout=self.timeout) as response:
             try:
                 response.raise_for_status()
             except requests.exceptions.HTTPError as e:
@@ -163,7 +166,9 @@ class SourceFinder(metaclass=abc.ABCMeta):
     :param version: Version of the source package to find
     :param s_type: A SourceType indicating the type of package
     :param cache_backend: A string containing the name of a registered
-        dogpile.cache backend.  Default: `dogpile.cache.null`, or no caching.
+        dogpile.cache backend.  This is highly useful when reusing
+        finders to locate multiple sources from the same set of repos.
+        Default: `dogpile.cache.null`, or no caching.
     :param cache_args: An iterable of arguments to use when initializing the
         cache.
 
@@ -183,10 +188,12 @@ class SourceFinder(metaclass=abc.ABCMeta):
         s_type: SourceType = None,
         cache_backend: str = 'dogpile.cache.null',
         cache_args: Mapping[str, Any] = None,
+        timeout: int = DEFAULT_TIMEOUT,
     ):
         self.name = name
         self.version = version
         self.s_type = s_type
+        self.timeout = timeout
 
         self._cache = make_region(
             key_mangler=lambda key: 'soufi/' + key
@@ -217,6 +224,57 @@ class SourceFinder(metaclass=abc.ABCMeta):
                 "All of name, version and s_type must have a value"
             )
         return self._find()
+
+    # Use this wrapper for doing HTTP HEAD requests, as it will swallow
+    # Timeout exceptions, but cache other lookups.
+    def test_url(self, url, **kwargs):
+        """Test if the given URL is valid.  Caches the result.
+
+        Intended for use by derived classes that need to interact with
+        public resources when doing lookups, to reduce traffic.
+        """
+        try:
+            return self._head_url(url, **kwargs)
+        except requests.exceptions.Timeout:
+            return False
+
+    def _head_url(self, url, **kwargs):
+        def inner():
+            response = requests.head(url, timeout=self.timeout, **kwargs)
+            if response.status_code == requests.codes.not_allowed:
+                # HEAD not available; we can try to download it instead and
+                # abort before starting the stream.
+                response = requests.get(
+                    url, stream=True, timeout=self.timeout, **kwargs
+                )
+                response.close()
+
+            if response.status_code != requests.codes.ok:
+                return None
+            return response
+
+        key = url
+        if 'params' in kwargs:
+            key += f"?{urlencode(kwargs['params'], doseq=True)}"
+        return self._cache.get_or_create(f"head-{key}", inner)
+
+    def get_url(self, url, **kwargs):
+        """Fetch the contents of the given URL and cache/return the result.
+
+        Intended for use by derived classes that need to interact with
+        public resources when doing lookups, to reduce traffic.
+        """
+
+        def inner():
+            response = requests.get(url, timeout=self.timeout, **kwargs)
+            if response.status_code != requests.codes.ok:
+                raise exceptions.DownloadError(response.reason)
+            return response
+
+        key = url
+        if 'params' in kwargs:
+            key += f"?{urlencode(kwargs['params'], doseq=True)}"
+        return self._cache.get_or_create(f"get-{key}", inner)
 
     @abc.abstractmethod
     def _find(self) -> DiscoveredSource:

@@ -45,7 +45,7 @@ class TestJavaFinder(base.TestCase):
             q=f'a:{finder.name} v:{finder.version} l:sources', rows=1
         )
         get.assert_called_once_with(
-            java.MAVEN_SEARCH_URL, params=expected, timeout=java.API_TIMEOUT
+            java.MAVEN_SEARCH_URL, params=expected, timeout=finder.timeout
         )
         expected = dict(
             filepath=f'{group}/{finder.name}/{finder.version}/'
@@ -55,7 +55,7 @@ class TestJavaFinder(base.TestCase):
             java.MAVEN_REPO_URL,
             params=expected,
             allow_redirects=True,
-            timeout=java.API_TIMEOUT,
+            timeout=finder.timeout,
         )
 
     def test_get_source_info_raises_when_get_response_fails(self):
@@ -72,6 +72,17 @@ class TestJavaFinder(base.TestCase):
         get.return_value = self.make_response(data, requests.codes.ok)
         head = self.patch(requests, 'head')
         head.return_value = self.make_response([], requests.codes.not_found)
+        finder = self.make_finder()
+        with testtools.ExpectedException(exceptions.SourceNotFound):
+            finder.get_source_url()
+
+    def test_get_source_info_raises_when_head_response_times_out(self):
+        group = self.factory.make_string()
+        data = dict(response=dict(docs=[dict(g=group)]))
+        get = self.patch(requests, 'get')
+        get.return_value = self.make_response(data, requests.codes.ok)
+        head = self.patch(requests, 'head')
+        head.side_effect = requests.exceptions.Timeout
         finder = self.make_finder()
         with testtools.ExpectedException(exceptions.SourceNotFound):
             finder.get_source_url()

@@ -8,11 +8,8 @@ from multiprocessing import Process, Queue
 from types import SimpleNamespace
 
 import repomd
-import requests
 
 from soufi import exceptions, finder
-
-TIMEOUT = 30  # seconds
 
 
 class YumFinder(finder.SourceFinder, metaclass=abc.ABCMeta):
@@ -66,7 +63,7 @@ class YumFinder(finder.SourceFinder, metaclass=abc.ABCMeta):
 
     def _find(self):
         source_url = self.get_source_url()
-        return YumDiscoveredSource([source_url])
+        return YumDiscoveredSource([source_url], timeout=self.timeout)
 
     def get_source_url(self):
         # Try to find the package in the binary repos, then backtrack into
@@ -177,35 +174,6 @@ class YumFinder(finder.SourceFinder, metaclass=abc.ABCMeta):
         else:
             epoch = ''
         return dict(name=name, ver=ver, rel=rel, epoch=epoch, arch=arch)
-
-    # Use this wrapper for doing HTTP HEAD requests, as it will swallow
-    # Timeout exceptions, but cache other lookups.
-    def test_url(self, url):
-        try:
-            return self._head_url(url)
-        except requests.exceptions.Timeout:
-            return False
-
-    def _head_url(self, url):
-        def inner(url):
-            response = requests.head(url, timeout=TIMEOUT)
-            return response.status_code == requests.codes.ok
-
-        return self._cache.get_or_create(
-            f"head-{url}", inner, creator_args=([url], {})
-        )
-
-    def get_url(self, url):
-        # Not used directly by this class, but subclasses tend to need it.
-        def inner(url):
-            response = requests.get(url, timeout=TIMEOUT)
-            if response.status_code != requests.codes.ok:
-                raise exceptions.DownloadError(response.reason)
-            return response.content
-
-        return self._cache.get_or_create(
-            f"get-{url}", inner, creator_args=([url], {})
-        )
 
 
 class YumDiscoveredSource(finder.DiscoveredSource):

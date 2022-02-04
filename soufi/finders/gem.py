@@ -1,12 +1,10 @@
 # Copyright (c) 2021 Cisco Systems, Inc. and its affiliates
 # All rights reserved.
 
-import requests
 
 from soufi import exceptions, finder
 
 GEM_DOWNLOADS = 'https://rubygems.org/downloads/'
-API_TIMEOUT = 30  # seconds
 
 
 class GemFinder(finder.SourceFinder):
@@ -19,12 +17,11 @@ class GemFinder(finder.SourceFinder):
 
     def _find(self):
         source_url = self.get_source_url()
-        return GemDiscoveredSource([source_url])
+        return GemDiscoveredSource([source_url], timeout=self.timeout)
 
     def get_source_url(self):
         url = f"{GEM_DOWNLOADS}{self.name}-{self.version}.gem"
-        response = requests.head(url, timeout=API_TIMEOUT)
-        if response.status_code != requests.codes.ok:
+        if not self.test_url(url):
             raise exceptions.SourceNotFound
         return url
 

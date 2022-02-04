@@ -1,12 +1,10 @@
 # Copyright (c) 2021 Cisco Systems, Inc. and its affiliates
 # All rights reserved.
 
-import requests
 
 from soufi import exceptions, finder
 
 SNAPSHOT_API = "https://snapshot.debian.org/"
-API_TIMEOUT = 30  # seconds
 
 
 class DebianFinder(finder.SourceFinder):
@@ -22,7 +20,7 @@ class DebianFinder(finder.SourceFinder):
         source_info = self.get_source_info()
         hashes = self.get_hashes(source_info)
         urls = self.get_urls(hashes)
-        return DebianDiscoveredSource(urls)
+        return DebianDiscoveredSource(urls, timeout=self.timeout)
 
     def get_source_info(self):
         """Return a dict of {name, version} of the source."""
@@ -30,10 +28,10 @@ class DebianFinder(finder.SourceFinder):
         # put a version in the API. Here, we grab the output and go
         # spelunking.
         url = f"{SNAPSHOT_API}mr/binary/{self.name}/"
-        response = requests.get(url, timeout=API_TIMEOUT)
-        if response.status_code != requests.codes.ok:
+        try:
+            data = self.get_url(url).json()
+        except exceptions.DownloadError:
             raise exceptions.SourceNotFound
-        data = response.json()
         all_versions = data['result']
         for info in all_versions:
             if info['binary_version'] == self.version:
@@ -46,10 +44,10 @@ class DebianFinder(finder.SourceFinder):
             f"{SNAPSHOT_API}mr/package/"
             f"{source_info['name']}/{source_info['version']}/srcfiles"
         )
-        response = requests.get(url, timeout=API_TIMEOUT)
-        if response.status_code != requests.codes.ok:
+        try:
+            data = self.get_url(url).json()
+        except exceptions.DownloadError:
             raise exceptions.SourceNotFound
-        data = response.json()
         try:
             return [r['hash'] for r in data['result']]
         except (IndexError, TypeError):
@@ -60,10 +58,7 @@ class DebianFinder(finder.SourceFinder):
         urls = []
         for hash in hashes:
             url = f"{SNAPSHOT_API}mr/file/{hash}/info"
-            response = requests.get(url, timeout=API_TIMEOUT)
-            if response.status_code != requests.codes.ok:
-                raise exceptions.DownloadError(response.reason)
-            data = response.json()
+            data = self.get_url(url).json()
             # The result data is a list. I am unsure what each element
             # of the list can be, but it seems like taking the first
             # returns a valid source file name, which is all we want.
@@ -81,16 +76,14 @@ class DebianDiscoveredSource(finder.DiscoveredSource):
     as they cannot be ascertained from the URL alone.
     """
 
-    def __init__(self, urls):
+    def __init__(self, urls, **kwargs):
         names, _urls = zip(*urls)
-        super().__init__(_urls)
+        super().__init__(_urls, **kwargs)
         self.names = names
 
     def populate_archive(self, temp_dir, tar):
         for name, url in zip(self.names, self.urls):
-            arcfile_name = self.download_file(
-                temp_dir, name, url, timeout=API_TIMEOUT
-            )
+            arcfile_name = self.download_file(temp_dir, name, url)
             tar.add(arcfile_name, arcname=name, filter=self.reset_tarinfo)
 
     def __repr__(self):

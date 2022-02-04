@@ -322,76 +322,94 @@ class TestYumFinderClassHelpers(BaseYumTest):
 
 
 class TestYumFinderHelpers(BaseYumTest):
+    def setUp(self):
+        self.queue = mock.MagicMock()
+        super().setUp()
+
     def test_get_repomd(self):
+        # Mock up a successful repomd fetch
         url = self.factory.make_url()
-        queue = mock.MagicMock()
         repo = self.patch(repomd, 'load')
         lxml = self.patch(repomd.defusedxml.lxml, 'tostring')
         lxml.return_value = b"<xml>Test</xml>"
         compress = self.patch(lzma, 'compress')
-        yum.get_repomd(queue, url)
+
+        # Ensure that get_repomd re-serializes the object XML and returns a
+        # compressed payload
+        yum.get_repomd(self.queue, url)
         compress.assert_called_once_with(lxml.return_value)
-        queue.put.assert_called_once_with(
+        self.queue.put.assert_called_once_with(
             (str(repo.return_value.baseurl), compress.return_value)
         )
 
     def test_get_repomd_http_error(self):
+        # Mock up a failure to fetch the repomd
         url = self.factory.make_url()
-        queue = mock.MagicMock()
-        self.patch(repomd, 'load').side_effect = urllib.error.HTTPError(
-            None, None, None, None, None
-        )
+        load = self.patch(repomd, 'load')
+        load.side_effect = urllib.error.HTTPError(None, None, None, None, None)
         lxml = self.patch(repomd.defusedxml.lxml, 'tostring')
         compress = self.patch(lzma, 'compress')
-        yum.get_repomd(queue, url)
+
+        # Ensure that get_repomd won't fill the cache with garbage
+        yum.get_repomd(self.queue, url)
         lxml.assert_not_called()
         compress.assert_not_called()
-        queue.put.assert_called_once_with((None, None))
+        self.queue.put.assert_called_once_with((None, None))
 
     def test_lookup_in_repomd(self):
-        queue = mock.MagicMock()
-        package = mock.MagicMock()
+        # Mock up a successful package lookup
         baseurl = self.factory.make_url()
         repomd_xml = self.factory.make_string()
         name = self.factory.make_string()
         decompress = self.patch(lzma, 'decompress')
         lxml = self.patch(repomd.defusedxml.lxml, 'fromstring')
         repo = self.patch(repomd, 'Repo')
+        package = mock.MagicMock()
         repo.return_value.findall.return_value = [package]
-        yum.lookup_in_repomd(queue, baseurl, repomd_xml, name)
+
+        # lookup_in_repomd should decompress/rehydrate a repomd object
+        yum.lookup_in_repomd(self.queue, baseurl, repomd_xml, name)
         decompress.assert_called_once_with(repomd_xml)
         lxml.assert_called_once_with(decompress.return_value)
         repo.assert_called_once_with(baseurl, lxml.return_value)
-        queue.put.assert_called_once_with([yum.serialize_package(package)])
+        # The response should be converted into a "simplified package"
+        self.queue.put.assert_called_once_with(
+            [yum.serialize_package(package)]
+        )
 
     def test_lookup_in_repomd_no_baseurl(self):
-        queue = mock.MagicMock()
+        # Ensure that calling lookup_in_repomd without valid args does no work
         repomd_xml = self.factory.make_string()
         name = self.factory.make_string()
         decompress = self.patch(lzma, 'decompress')
         repo = self.patch(repomd, 'Repo')
-        yum.lookup_in_repomd(queue, None, repomd_xml, name)
+
+        yum.lookup_in_repomd(self.queue, None, repomd_xml, name)
         decompress.assert_not_called()
         repo.assert_not_called()
-        queue.put.assert_called_once_with([])
+        self.queue.put.assert_called_once_with([])
 
     def test_lookup_in_repomd_no_repoxml(self):
-        queue = mock.MagicMock()
+        # Ibid.
         baseurl = self.factory.make_url()
         name = self.factory.make_string()
         decompress = self.patch(lzma, 'decompress')
         repo = self.patch(repomd, 'Repo')
-        yum.lookup_in_repomd(queue, baseurl, None, name)
+
+        yum.lookup_in_repomd(self.queue, baseurl, None, name)
         decompress.assert_not_called()
         repo.assert_not_called()
-        queue.put.assert_called_once_with([])
+        self.queue.put.assert_called_once_with([])
 
     def test_do_task(self):
+        # Mock up a process that does not exit upon return
         data = self.factory.make_string('response')
         queue = self.patch(yum, 'Queue')
         queue.return_value.get.return_value = data
         process = self.patch(yum, 'Process')
         process.return_value.is_alive.return_value = True
+
+        # Ensure that the process gets shot in the head
         response = yum.do_task('a', 'b', 'c')
         self.assertEqual(data, response)
         process.return_value.terminate.assert_called_once_with()

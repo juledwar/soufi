@@ -18,12 +18,27 @@ from soufi.testing import base
 
 
 class TestUbuntuFinder(base.TestCase):
-    def make_finder(self, name=None, version=None):
+    def make_finder(self, name=None, version=None, **kwargs):
         if name is None:
             name = self.factory.make_string('name')
         if version is None:
             version = self.factory.make_string('version')
-        return ubuntu.UbuntuFinder(name, version, SourceType.os)
+        return ubuntu.UbuntuFinder(name, version, SourceType.os, **kwargs)
+
+    def test_init_auths_to_Launchpad_only_once(self):
+        login = self.patch(ubuntu.Launchpad, 'login_anonymously')
+        cache = dict()
+        self.make_finder(
+            cache_backend='dogpile.cache.memory',
+            cache_args=dict(cache_dict=cache),
+        )
+        self.make_finder(
+            cache_backend='dogpile.cache.memory',
+            cache_args=dict(cache_dict=cache),
+        )
+        login.assert_called_once_with(
+            "soufi", "production", mock.ANY, version="devel", timeout=30
+        )
 
     def test_get_archive(self):
         lp = mock.MagicMock()

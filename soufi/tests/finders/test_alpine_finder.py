@@ -4,6 +4,7 @@
 import os
 import tarfile
 import tempfile
+import urllib
 import warnings
 from hashlib import sha512
 from io import BytesIO
@@ -296,7 +297,7 @@ class TestAlpineDiscoveredSource(base.TestCase):
         url = self.factory.make_url(scheme='ftp')
         content = self.factory.make_bytes('content')
         response = BytesIO(content)
-        urlopen = self.patch(alpine.urllib.request, 'urlopen')
+        urlopen = self.patch(urllib.request, 'urlopen')
         urlopen.return_value = response
         sha512sum = {os.path.basename(url): sha512(content).hexdigest()}
 
