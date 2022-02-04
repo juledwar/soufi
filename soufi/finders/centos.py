@@ -63,7 +63,7 @@ class CentosFinder(yum_finder.YumFinder):
 
     def _get_dirs(self):
         """Get all the possible Vault dirs that could match."""
-        content = self.get_url(VAULT)
+        content = self.get_url(VAULT).content
         tree = html.fromstring(content)
         dirs = tree.xpath('//td[@class="indexcolname"]/a/text()')
         # CentOS Vault is fond of symlinking the current point release to a

@@ -37,7 +37,7 @@ class TestNPMFinder(base.TestCase):
         self.assertEqual(found_url, url)
         get.assert_called_once_with(
             f"https://registry.npmjs.org/{finder.name}/{finder.version}",
-            timeout=30,
+            timeout=finder.timeout,
         )
 
     def test_get_source_info_raises_when_response_fails(self):

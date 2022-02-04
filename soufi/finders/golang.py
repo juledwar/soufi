@@ -1,12 +1,10 @@
 # Copyright (c) 2021 Cisco Systems, Inc. and its affiliates
 # All rights reserved.
 
-import requests
 
 from soufi import exceptions, finder
 
 PUBLIC_PROXY = 'https://proxy.golang.org/'
-PROXY_TIMEOUT = 30  # seconds
 
 
 class GolangFinder(finder.SourceFinder):
@@ -33,20 +31,11 @@ class GolangFinder(finder.SourceFinder):
 
     def _find(self):
         # Main entrypoint from the parent class.
-        if self._proxy_find():
-            return GolangDiscoveredSource([self.original_url])
-        raise exceptions.SourceNotFound()
-
-    def _proxy_find(self):
-        response = requests.head(self.original_url, timeout=PROXY_TIMEOUT)
-        if response.status_code == requests.codes.not_allowed:
-            # HEAD not available; we can try to download it instead and abort
-            # before starting the stream.
-            response = requests.get(
-                self.original_url, stream=True, timeout=PROXY_TIMEOUT
+        if self.test_url(self.original_url):
+            return GolangDiscoveredSource(
+                [self.original_url], timeout=self.timeout
             )
-            response.close()
-        return response.ok
+        raise exceptions.SourceNotFound()
 
 
 class GolangDiscoveredSource(finder.DiscoveredSource):

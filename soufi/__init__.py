@@ -2,6 +2,7 @@
 # All rights reserved.
 
 """A simple testing CLI to find and download source."""
+import functools
 import os
 import shutil
 
@@ -22,7 +23,7 @@ class Finder:
         return source
 
     @classmethod
-    def ubuntu(cls, name, version):
+    def ubuntu(cls, name, version, timeout=None):
         click.echo("Logging in to Launchpad")
         ubuntu_finder = finder.factory(
             "ubuntu",
@@ -31,38 +32,46 @@ class Finder:
             finder.SourceType.os,
             cache_backend='dogpile.cache.memory',
             cache_args=dict(cache_dict=LRU_CACHE),
+            timeout=timeout,
         )
         click.echo("Finding source in Launchpad")
         return cls.find(ubuntu_finder)
 
     @classmethod
-    def debian(cls, name, version):
+    def debian(cls, name, version, timeout=None):
         debian_finder = finder.factory(
             "debian", name, version, finder.SourceType.os
         )
         return cls.find(debian_finder)
 
     @classmethod
-    def npm(cls, name, version):
+    def npm(cls, name, version, timeout=None):
         npm_finder = finder.factory(
-            "npm", name, version, finder.SourceType.npm
+            "npm", name, version, finder.SourceType.npm, timeout=timeout
         )
         return cls.find(npm_finder)
 
     @classmethod
-    def python(cls, name, version, pyindex=None):
+    def python(cls, name, version, pyindex=None, timeout=None):
         python_finder = finder.factory(
             "python",
             name=name,
             version=version,
             s_type=finder.SourceType.python,
             pyindex=pyindex,
+            timeout=timeout,
         )
         return cls.find(python_finder)
 
     @classmethod
     def centos(
-        cls, name, version, repos=None, source_repos=None, binary_repos=None
+        cls,
+        name,
+        version,
+        repos=None,
+        source_repos=None,
+        binary_repos=None,
+        timeout=None,
     ):
         optimal = 'optimal' in repos
         centos_finder = finder.factory(
@@ -76,11 +85,12 @@ class Finder:
             binary_repos=binary_repos,
             cache_backend='dogpile.cache.memory',
             cache_args=dict(cache_dict=LRU_CACHE),
+            timeout=timeout,
         )
         return cls.find(centos_finder)
 
     @classmethod
-    def alpine(cls, name, version, aports_dir):
+    def alpine(cls, name, version, aports_dir, timeout=None):
         alpine_finder = finder.factory(
             "alpine",
             name=name,
@@ -89,42 +99,48 @@ class Finder:
             aports_dir=aports_dir,
             cache_backend='dogpile.cache.memory',
             cache_args=dict(cache_dict=LRU_CACHE),
+            timeout=timeout,
         )
         return cls.find(alpine_finder)
 
     @classmethod
-    def go(cls, name, version, goproxy):
+    def go(cls, name, version, goproxy, timeout=None):
         go_finder = finder.factory(
             "go",
             name=name,
             version=version,
             s_type=finder.SourceType.go,
             goproxy=goproxy,
+            timeout=timeout,
         )
         return cls.find(go_finder)
 
     @classmethod
-    def java(cls, name, version):
+    def java(cls, name, version, timeout=None):
         java_finder = finder.factory(
             "java",
             name=name,
             version=version,
             s_type=finder.SourceType.java,
+            timeout=timeout,
         )
         return cls.find(java_finder)
 
     @classmethod
-    def gem(cls, name, version):
+    def gem(cls, name, version, timeout=None):
         gem_finder = finder.factory(
             "gem",
             name=name,
             version=version,
             s_type=finder.SourceType.gem,
+            timeout=timeout,
         )
         return cls.find(gem_finder)
 
     @classmethod
-    def photon(cls, name, version, source_repos=None, binary_repos=None):
+    def photon(
+        cls, name, version, source_repos=None, binary_repos=None, timeout=None
+    ):
         photon_finder = finder.factory(
             "photon",
             name=name,
@@ -134,11 +150,14 @@ class Finder:
             binary_repos=binary_repos,
             cache_backend='dogpile.cache.memory',
             cache_args=dict(cache_dict=LRU_CACHE),
+            timeout=timeout,
         )
         return cls.find(photon_finder)
 
     @classmethod
-    def rhel(cls, name, version, source_repos=None, binary_repos=None):
+    def rhel(
+        cls, name, version, source_repos=None, binary_repos=None, timeout=None
+    ):
         rhel_finder = finder.factory(
             "rhel",
             name=name,
@@ -148,6 +167,7 @@ class Finder:
             binary_repos=binary_repos,
             cache_backend='dogpile.cache.memory',
             cache_args=dict(cache_dict=LRU_CACHE),
+            timeout=timeout,
         )
         return cls.find(rhel_finder)
 
@@ -224,6 +244,13 @@ def make_archive_from_discovery_source(disc_src, fname):
     "{name}-{version}.{distro/type}.tar.[gz|xz] "
     "(This option takes precedence over -o/--output)",
 )
+@click.option(
+    "--timeout",
+    type=click.IntRange(1),
+    default=30,
+    help="Timeout when making requests.  Must be greater than zero.",
+    show_default=True,
+)
 def main(
     distro,
     name,
@@ -236,6 +263,7 @@ def main(
     auto_output,
     source_repo,
     binary_repo,
+    timeout,
 ):
     """Find and optionally download source files.
 
@@ -252,7 +280,9 @@ def main(
     specified as the DISTRO argument.
     """
     try:
-        func = getattr(Finder, distro)
+        func = functools.partial(
+            getattr(Finder, distro), name, version, timeout=timeout
+        )
     except AttributeError:
         click.echo(f"{distro} not available")
         click.get_current_context().exit(255)
@@ -261,28 +291,21 @@ def main(
         click.get_current_context().exit(255)
     try:
         if distro == 'python':
-            disc_source = func(name, version, pyindex=pyindex)
+            disc_source = func(pyindex=pyindex)
         elif distro == 'alpine':
-            disc_source = func(name, version, aports_dir=aports)
+            disc_source = func(aports_dir=aports)
         elif distro == 'centos':
             disc_source = func(
-                name,
-                version,
-                repos=repo,
-                source_repos=source_repo,
-                binary_repos=binary_repo,
+                repos=repo, source_repos=source_repo, binary_repos=binary_repo
             )
         elif distro in ('photon', 'rhel'):
             disc_source = func(
-                name,
-                version,
-                source_repos=source_repo,
-                binary_repos=binary_repo,
+                source_repos=source_repo, binary_repos=binary_repo
             )
         elif distro == 'go':
-            disc_source = func(name, version, goproxy=goproxy)
+            disc_source = func(goproxy=goproxy)
         else:
-            disc_source = func(name, version)
+            disc_source = func()
     except exceptions.SourceNotFound:
         click.echo("source not found")
         click.get_current_context().exit(255)

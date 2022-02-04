@@ -50,7 +50,7 @@ class TestGolangFinder(base.TestCase):
             f"/@v/{finder.version}.zip"
         ]
         self.assertThat(source.urls, SameMembers(expected))
-        head.assert_called_once_with(expected[0], timeout=golang.PROXY_TIMEOUT)
+        head.assert_called_once_with(expected[0], timeout=finder.timeout)
 
     def test_retries_with_get_if_head_fails(self):
         finder = self.make_finder()
@@ -62,9 +62,9 @@ class TestGolangFinder(base.TestCase):
             f"/@v/{finder.version}.zip"
         ]
         self.assertThat(source.urls, SameMembers(expected))
-        head.assert_called_once_with(expected[0], timeout=golang.PROXY_TIMEOUT)
+        head.assert_called_once_with(expected[0], timeout=finder.timeout)
         get.assert_called_once_with(
-            expected[0], stream=True, timeout=golang.PROXY_TIMEOUT
+            expected[0], stream=True, timeout=finder.timeout
         )
 
 

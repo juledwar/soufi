@@ -101,7 +101,7 @@ class TestDebianFinder(base.TestCase):
         get.assert_called_once_with(
             f"{debian.SNAPSHOT_API}mr/package/"
             f"{source_info['name']}/{source_info['version']}/srcfiles",
-            timeout=debian.API_TIMEOUT,
+            timeout=df.timeout,
         )
 
     def test_get_hashes_raises_for_requests_error(self):
@@ -137,7 +137,7 @@ class TestDebianFinder(base.TestCase):
         calls = [
             mock.call(
                 f"{debian.SNAPSHOT_API}mr/file/{hash}/info",
-                timeout=debian.API_TIMEOUT,
+                timeout=df.timeout,
             )
             for hash in hashes
         ]

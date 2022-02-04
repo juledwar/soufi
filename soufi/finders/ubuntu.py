@@ -7,8 +7,6 @@ from launchpadlib.launchpad import Launchpad
 
 from soufi import exceptions, finder
 
-API_TIMEOUT = 30  # seconds
-
 
 class UbuntuFinder(finder.SourceFinder):
     """Find Ubuntu source files."""
@@ -23,7 +21,7 @@ class UbuntuFinder(finder.SourceFinder):
         build = self.get_build()
         source = self.get_source_from_build(build)
         urls = tuple(sorted(source.sourceFileUrls()))
-        return UbuntuDiscoveredSource(urls)
+        return UbuntuDiscoveredSource(urls, timeout=self.timeout)
 
     def get_archive(self):
         """Retrieve, and cache, the LP distro main archive object."""
@@ -35,7 +33,7 @@ class UbuntuFinder(finder.SourceFinder):
                 "production",
                 cachedir,
                 version="devel",
-                timeout=API_TIMEOUT,
+                timeout=self.timeout,
             )
             distribution = lp.distributions[self.distro]
             return distribution.main_archive
@@ -69,9 +67,7 @@ class UbuntuDiscoveredSource(finder.DiscoveredSource):
         # The file name is the last segment of the URL path.
         names = [url.rsplit('/', 1)[-1] for url in self.urls]
         for name, url in zip(names, self.urls):
-            arcfile_name = self.download_file(
-                temp_dir, name, url, timeout=API_TIMEOUT
-            )
+            arcfile_name = self.download_file(temp_dir, name, url)
             tar.add(arcfile_name, arcname=name, filter=self.reset_tarinfo)
 
     def __repr__(self):

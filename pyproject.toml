@@ -23,6 +23,7 @@ exclude = '''
 omit = [
     '*soufi/tests*',
     '*soufi/testing*',
+    '*soufi/functional*',
     'soufi/__init__.py',
 ]
 

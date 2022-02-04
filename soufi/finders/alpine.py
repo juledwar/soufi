@@ -17,7 +17,6 @@ from soufi import exceptions, finder
 
 warnings.formatwarning = lambda msg, *x, **y: f'WARNING: {msg}\n'
 
-API_TIMEOUT = 30  # seconds
 # Shell snippet that will source an APKBUILD and spit out the vars that we
 # need. CARCH is set to work around a bug in 3.12.0 scripts. CTARGET_ARCH
 # is needed for more complex scripts like `community/go`.
@@ -71,7 +70,7 @@ class AlpineFinder(finder.SourceFinder):
         :return: A dict mapping package names to the APKBUILD path.
         """
 
-        def inner(aports_dir):
+        def inner():
             apkbuilds = {}
             for apkbuild in glob.iglob(
                 f"{aports_dir}/**/*/APKBUILD", recursive=True
@@ -81,9 +80,7 @@ class AlpineFinder(finder.SourceFinder):
                 apkbuilds[package] = path
             return apkbuilds
 
-        return self._cache.get_or_create(
-            f"glob-{aports_dir}", inner, creator_args=([aports_dir], {})
-        )
+        return self._cache.get_or_create(f"glob-{aports_dir}", inner)
 
     def _find_apkbuild_path(self, name):
         """Return the Path to the APKBUILD for package with 'name'."""
@@ -174,7 +171,9 @@ class AlpineFinder(finder.SourceFinder):
             expect_version = self.version
         if version == expect_version:
             return AlpineDiscoveredSource(
-                apkbuild['source'], sha512sums=apkbuild['sha512sums']
+                apkbuild['source'],
+                sha512sums=apkbuild['sha512sums'],
+                timeout=self.timeout,
             )
         raise exceptions.SourceNotFound()
 
@@ -182,9 +181,9 @@ class AlpineFinder(finder.SourceFinder):
 class AlpineDiscoveredSource(finder.DiscoveredSource):
     """A discovered Alpine source package."""
 
-    def __init__(self, urls: Iterable[str], sha512sums=None):
+    def __init__(self, urls: Iterable[str], sha512sums=None, **kwargs):
         self.sha512sums = sha512sums or {}
-        super().__init__(urls)
+        super().__init__(urls, **kwargs)
 
     def populate_archive(self, temp_dir, tar):
         # The file name is the last segment of the URL path, unless the source
@@ -209,9 +208,7 @@ class AlpineDiscoveredSource(finder.DiscoveredSource):
                 # Requests cannot do FTP, fall back to urllib.
                 arcfile_name = self.download_ftp_file(temp_dir, name, url)
             else:
-                arcfile_name = self.download_file(
-                    temp_dir, name, url, timeout=API_TIMEOUT
-                )
+                arcfile_name = self.download_file(temp_dir, name, url)
             if name in self.sha512sums:
                 self.verify_sha512sum(arcfile_name, self.sha512sums[name])
             else:
@@ -246,7 +243,7 @@ class AlpineDiscoveredSource(finder.DiscoveredSource):
         tmp_file_name = pathlib.Path(temp_dir) / name
         with closing(
             # B310 restricts permitted schemes, but we only call with ftp here.
-            urllib.request.urlopen(url, timeout=API_TIMEOUT)  # nosec B310
+            urllib.request.urlopen(url, timeout=self.timeout)  # nosec B310
         ) as ftp, open(tmp_file_name, 'wb') as f:
             shutil.copyfileobj(ftp, f)
         return tmp_file_name

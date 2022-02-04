@@ -1,12 +1,10 @@
 # Copyright (c) 2021 Cisco Systems, Inc. and its affiliates
 # All rights reserved.
 
-import requests
 
 from soufi import exceptions, finder
 
 DEFAULT_INDEX = 'https://pypi.org/pypi/'
-API_TIMEOUT = 30  # seconds
 
 
 class PythonFinder(finder.SourceFinder):
@@ -28,7 +26,7 @@ class PythonFinder(finder.SourceFinder):
 
     def _find(self):
         source_url = self.get_source_url()
-        return PythonDiscoveredSource([source_url])
+        return PythonDiscoveredSource([source_url], timeout=self.timeout)
 
     def get_source_url(self):
         """Get the URL from the JSON info for the Python package."""
@@ -44,10 +42,10 @@ class PythonFinder(finder.SourceFinder):
     def get_pypi_source_url(self):
         """Get URLs for packages that are in a pypi server."""
         url = f"{self.index}{self.name}/{self.version}/json"
-        response = requests.get(url, timeout=API_TIMEOUT)
-        if response.status_code != requests.codes.ok:
+        try:
+            data = self.get_url(url).json()
+        except exceptions.DownloadError:
             raise exceptions.SourceNotFound
-        data = response.json()
         releases = data['releases']
         for version, release_data in releases.items():
             if version != self.version:
@@ -67,10 +65,10 @@ class PythonFinder(finder.SourceFinder):
         """
         url = f"{self.index}{self.name}/{self.version}"
         headers = {'Accept': 'application/json'}
-        response = requests.get(url, headers=headers, timeout=API_TIMEOUT)
-        if response.status_code != requests.codes.ok:
+        try:
+            data = self.get_url(url, headers=headers).json()
+        except exceptions.DownloadError:
             raise exceptions.SourceNotFound
-        data = response.json()
         result = data['result']
         href = result['+links'][0]['href']
         return href
