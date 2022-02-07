@@ -1,9 +1,18 @@
 CHANGES
 =======
 
+2022.02.07
+----------
+
+* Release 2022.02.07
+* Extend caching behavior to all finders, add functional tests
+* Use dogpile.cache + pylru instead of functools.lru\_cache, rewrite YumFinder
+* Simplify YumFinder; Everything is a generator
+
 2022.01.25
 ----------
 
+* Release 2022.01.25
 * RHEL: redo visibility of YumFinder methods
 * CentOS: redo visibility of YumFinder methods
 * Photon: redo visibility of YumFinder methods
