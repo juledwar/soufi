@@ -176,6 +176,8 @@ class SourceFinder(metaclass=abc.ABCMeta):
     `find()` should then specify any that were not passed to `__init__`.
     """
 
+    timeout = DEFAULT_TIMEOUT
+
     @property
     @abc.abstractmethod
     def distro(self) -> Union[Distro, str]:
