@@ -3,13 +3,16 @@
 
 import abc
 import lzma
-import urllib
+import warnings
 from multiprocessing import Process, Queue
 from types import SimpleNamespace
 
 import repomd
+from dogpile.cache.backends.null import NullBackend as CACHING_DISABLED
 
 from soufi import exceptions, finder
+
+warnings.formatwarning = lambda msg, *x, **y: f"WARNING: {msg}\n"
 
 
 class YumFinder(finder.SourceFinder, metaclass=abc.ABCMeta):
@@ -35,6 +38,11 @@ class YumFinder(finder.SourceFinder, metaclass=abc.ABCMeta):
         self.source_repos = source_repos
         self.binary_repos = binary_repos
         super().__init__(*args, **kwargs)
+        if isinstance(self._cache.backend, CACHING_DISABLED):
+            warnings.warn(
+                "disabling caching with the DNF/Yum finder is highly "
+                "ill-advised.  Please see the documentation."
+            )
 
     def generate_repos(self, repos, fallback):
         """Ensure a generator is always returned for repos.
@@ -224,7 +232,11 @@ def get_repomd(queue, url):
         url += '/'
     try:
         repo = repomd.load(url)
-    except urllib.error.HTTPError:
+    except Exception:
+        # NOTE(nic): there are roughly eleven quintillion failure modes when
+        #  loading repomd, with zero of them being actionable in any realistic
+        #  way.  Swallow all failures and send back NoneTypes, the callers will
+        #  similarly roll those over into "no package for you" results.
         queue.put((None, None))
         return
     payload = repomd.defusedxml.lxml.tostring(repo._metadata)

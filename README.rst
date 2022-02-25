@@ -73,6 +73,37 @@ Using the API:
         shutil.filecopyobj(archive, local)
 
 
+Caching
+-------
+
+Soufi uses `dogpile.cache <https://github.com/sqlalchemy/dogpile.cache>`_ to
+provide a convenient mechanism for caching requests when doing repeated
+lookups.  For sources with network-intensive remote discovery (e.g,,
+DNF/Yum-based OSes) this is **strongly recommended**.
+
+For a single-threaded application, an in-memory LRU cache, should be adequate:
+
+.. code:: python
+
+    import pylru
+    import soufi
+
+    LRU_CACHE = pylru.lrucache(size=1024)
+    finder = soufi.finder.factory(
+        'centos', 'cracklib-dicts', '2.9.0-11.el7', soufi.finder.SourceType.os,
+        cache_backend='dogpile.cache.memory',
+        cache_args=dict(cache_dict=LRU_CACHE),
+    )
+    print(finder.find())
+    # Re-using the finder will use cached results
+    print(finder.find('vim-minimal', '7.4.629-8.el7_9'))
+
+More complex applications can use the other backends, e.g., memcached, Redis,
+custom backends, etc.  See the
+`dogpile.cache documentation <https://dogpilecache.sqlalchemy.org/>`_
+for details on backend configuration.
+
+
 Copyright
 ---------
 
