@@ -8,7 +8,7 @@ from multiprocessing import Process, Queue
 from types import SimpleNamespace
 
 import repomd
-from dogpile.cache.backends.null import NullBackend as CACHING_DISABLED
+from dogpile.cache.backends.null import NullBackend
 
 from soufi import exceptions, finder
 
@@ -38,9 +38,9 @@ class YumFinder(finder.SourceFinder, metaclass=abc.ABCMeta):
         self.source_repos = source_repos
         self.binary_repos = binary_repos
         super().__init__(*args, **kwargs)
-        if isinstance(self._cache.backend, CACHING_DISABLED):
+        if isinstance(self._cache.backend, NullBackend):
             warnings.warn(
-                "disabling caching with the DNF/Yum finder is highly "
+                "Use of the Null cache with the DNF/Yum finder is highly "
                 "ill-advised.  Please see the documentation."
             )
 
@@ -77,11 +77,17 @@ class YumFinder(finder.SourceFinder, metaclass=abc.ABCMeta):
         # Try to find the package in the binary repos, then backtrack into
         # the source repos with the name and version of the SRPM provided.
         # This is, in aggregate, faster than looking up the source first.
-        source_name, source_ver = self._walk_binary_repos(self.name)
+        try:
+            source_name, source_ver = self._walk_binary_repos(self.name)
+        except Exception as e:
+            raise exceptions.DownloadError(e)
         if source_name is None:
             raise exceptions.SourceNotFound
 
-        url = self._walk_source_repos(source_name, source_ver)
+        try:
+            url = self._walk_source_repos(source_name, source_ver)
+        except Exception as e:
+            raise exceptions.DownloadError(e)
         if url is None:
             raise exceptions.SourceNotFound
 
@@ -217,6 +223,10 @@ def do_task(target, *args):
     response = queue.get()
     if process.is_alive():
         process.terminate()
+    # re-raise exceptions thrown in child processes; this should keep them
+    # from getting cached
+    if isinstance(response[0], Exception):
+        raise response[0]
     return response
 
 
@@ -232,12 +242,10 @@ def get_repomd(queue, url):
         url += '/'
     try:
         repo = repomd.load(url)
-    except Exception:
-        # NOTE(nic): there are roughly eleven quintillion failure modes when
-        #  loading repomd, with zero of them being actionable in any realistic
-        #  way.  Swallow all failures and send back NoneTypes, the callers will
-        #  similarly roll those over into "no package for you" results.
-        queue.put((None, None))
+    except Exception as e:
+        # Send exceptions back to the caller, just like anything else.  It's
+        # up to the receiver to inspect and re-raise
+        queue.put((e,))
         return
     payload = repomd.defusedxml.lxml.tostring(repo._metadata)
     queue.put((str(repo.baseurl), lzma.compress(payload)))
