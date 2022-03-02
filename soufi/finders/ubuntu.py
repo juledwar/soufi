@@ -29,6 +29,8 @@ class UbuntuFinder(finder.SourceFinder):
     #  within threads, at least.  This will cause duplicated work in
     #  concurrent applications, which sadly cannot be avoided.
     #  See: https://bugs.launchpad.net/launchpadlib/+bug/822847
+    # NOTE(nic): workaround an apparent bug in Python 3.7 where the default
+    # maxsize for the functools.lru_cache decorator does not work
     @classmethod
     @functools.lru_cache(maxsize=128)
     def get_archive(cls):

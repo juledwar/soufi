@@ -440,16 +440,22 @@ class TestYumFinderHelpers(BaseYumTest):
         process.return_value.terminate.assert_called_once_with()
 
     def test_do_task_reraises_exceptions(self):
-        # Mock up a process that has thrown an exception
+        # Actually run a job via do_task and ensure that the resulting
+        # exception is intact
         data = self.factory.make_string('response')
-        queue = self.patch(yum, 'Queue')
-        queue.return_value.get.return_value = [RuntimeError(data)]
-        process = self.patch(yum, 'Process')
-        process.return_value.is_alive.return_value = False
-
-        err = self.assertRaises(RuntimeError, yum.do_task, 'a', 'b', 'c')
+        err = self.assertRaises(RuntimeError, yum.do_task, kaboom, data)
         self.assertEqual(data, str(err))
-        process.return_value.terminate.assert_not_called()
+
+
+# A simple subprocess function that throws a test exception.  Used by
+# TestYumFinderHelpers.test_do_task_reraises_exceptions
+def kaboom(queue, data):
+    try:
+        raise RuntimeError(data)
+    except Exception as e:
+        queue.put((e,))
+    # This should never get called, but just in case...
+    queue.put([])
 
 
 class TestYumDiscoveredSource(base.TestCase):
