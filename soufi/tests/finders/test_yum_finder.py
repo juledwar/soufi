@@ -439,6 +439,18 @@ class TestYumFinderHelpers(BaseYumTest):
         self.assertEqual(data, response)
         process.return_value.terminate.assert_called_once_with()
 
+    def test_do_task_empty_response(self):
+        # Mock up a process that yields an "empty-but-successful" response
+        queue = self.patch(yum, 'Queue')
+        queue.return_value.get.return_value = []
+        process = self.patch(yum, 'Process')
+        process.return_value.is_alive.return_value = False
+
+        # Ensure that the process gets shot in the head
+        response = yum.do_task('d', 'e', 'f')
+        self.assertEqual([], response)
+        process.return_value.terminate.assert_not_called()
+
     def test_do_task_reraises_exceptions(self):
         # Actually run a job via do_task and ensure that the resulting
         # exception is intact

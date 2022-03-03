@@ -235,7 +235,7 @@ def do_task(target, *args):
         process.terminate()
     # re-raise exceptions thrown in child processes; this should keep them
     # from getting cached
-    if isinstance(response[0], Exception):
+    if response and isinstance(response[0], Exception):
         raise response[0]
     return response
 
