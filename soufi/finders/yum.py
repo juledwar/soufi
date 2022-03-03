@@ -74,20 +74,30 @@ class YumFinder(finder.SourceFinder, metaclass=abc.ABCMeta):
         return YumDiscoveredSource([source_url], timeout=self.timeout)
 
     def get_source_url(self):
-        # Try to find the package in the binary repos, then backtrack into
-        # the source repos with the name and version of the SRPM provided.
-        # This is, in aggregate, faster than looking up the source first.
+        """Lookup the URL for the SRPM corresponding to the package name.
+
+        :return: a URL of the location of an SRPM.
+        :raises: exceptions.SourceNotFound if no SRPM could be found in any
+            of the repos.
+        :raises: exceptions.DownloadError on any failure downloading the
+            repomd files.  The original exception that caused the failure
+            may be inspected in the `__cause__` attribute.
+        """
+        # NOTE(nic): Try to find the package in the binary repos,
+        #  then backtrack into the source repos with the name and version of
+        #  the SRPM provided.  This is, in aggregate, faster than looking up
+        #  the source first.
         try:
             source_name, source_ver = self._walk_binary_repos(self.name)
         except Exception as e:
-            raise exceptions.DownloadError(e)
+            raise exceptions.DownloadError from e
         if source_name is None:
             raise exceptions.SourceNotFound
 
         try:
             url = self._walk_source_repos(source_name, source_ver)
         except Exception as e:
-            raise exceptions.DownloadError(e)
+            raise exceptions.DownloadError from e
         if url is None:
             raise exceptions.SourceNotFound
 
