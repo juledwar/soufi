@@ -3,13 +3,16 @@
 
 import abc
 import lzma
-import urllib
+import warnings
 from multiprocessing import Process, Queue
 from types import SimpleNamespace
 
 import repomd
+from dogpile.cache.backends.null import NullBackend
 
 from soufi import exceptions, finder
+
+warnings.formatwarning = lambda msg, *x, **y: f"WARNING: {msg}\n"
 
 
 class YumFinder(finder.SourceFinder, metaclass=abc.ABCMeta):
@@ -35,6 +38,11 @@ class YumFinder(finder.SourceFinder, metaclass=abc.ABCMeta):
         self.source_repos = source_repos
         self.binary_repos = binary_repos
         super().__init__(*args, **kwargs)
+        if isinstance(self._cache.backend, NullBackend):
+            warnings.warn(
+                "Use of the Null cache with the DNF/Yum finder is highly "
+                "ill-advised.  Please see the documentation."
+            )
 
     def generate_repos(self, repos, fallback):
         """Ensure a generator is always returned for repos.
@@ -66,14 +74,30 @@ class YumFinder(finder.SourceFinder, metaclass=abc.ABCMeta):
         return YumDiscoveredSource([source_url], timeout=self.timeout)
 
     def get_source_url(self):
-        # Try to find the package in the binary repos, then backtrack into
-        # the source repos with the name and version of the SRPM provided.
-        # This is, in aggregate, faster than looking up the source first.
-        source_name, source_ver = self._walk_binary_repos(self.name)
+        """Lookup the URL for the SRPM corresponding to the package name.
+
+        :return: a URL of the location of an SRPM.
+        :raises: exceptions.SourceNotFound if no SRPM could be found in any
+            of the repos.
+        :raises: exceptions.DownloadError on any failure downloading the
+            repomd files.  The original exception that caused the failure
+            may be inspected in the `__cause__` attribute.
+        """
+        # NOTE(nic): Try to find the package in the binary repos,
+        #  then backtrack into the source repos with the name and version of
+        #  the SRPM provided.  This is, in aggregate, faster than looking up
+        #  the source first.
+        try:
+            source_name, source_ver = self._walk_binary_repos(self.name)
+        except Exception as e:
+            raise exceptions.DownloadError from e
         if source_name is None:
             raise exceptions.SourceNotFound
 
-        url = self._walk_source_repos(source_name, source_ver)
+        try:
+            url = self._walk_source_repos(source_name, source_ver)
+        except Exception as e:
+            raise exceptions.DownloadError from e
         if url is None:
             raise exceptions.SourceNotFound
 
@@ -209,6 +233,10 @@ def do_task(target, *args):
     response = queue.get()
     if process.is_alive():
         process.terminate()
+    # re-raise exceptions thrown in child processes; this should keep them
+    # from getting cached
+    if isinstance(response[0], Exception):
+        raise response[0]
     return response
 
 
@@ -224,8 +252,10 @@ def get_repomd(queue, url):
         url += '/'
     try:
         repo = repomd.load(url)
-    except urllib.error.HTTPError:
-        queue.put((None, None))
+    except Exception as e:
+        # Send exceptions back to the caller, just like anything else.  It's
+        # up to the receiver to inspect and re-raise
+        queue.put((e,))
         return
     payload = repomd.defusedxml.lxml.tostring(repo._metadata)
     queue.put((str(repo.baseurl), lzma.compress(payload)))

@@ -143,6 +143,18 @@ class TestYumFinder(BaseYumTest):
         walk_binary.assert_called_once_with(name)
         walk_src.assert_not_called()
 
+    def test_get_source_url_raises_on_binary_repomd_download_error(self):
+        name = self.factory.make_string()
+        finder = self.make_finder(name=name)
+        walk_src = self.patch(finder, '_walk_source_repos')
+        walk_binary = self.patch(finder, '_walk_binary_repos')
+        walk_binary.side_effect = Exception()
+        self.assertRaises(
+            soufi.exceptions.DownloadError, finder.get_source_url
+        )
+        walk_binary.assert_called_once_with(name)
+        walk_src.assert_not_called()
+
     def test_get_source_url_raises_on_no_source(self):
         name = self.factory.make_string()
         finder = self.make_finder(name=name)
@@ -167,6 +179,19 @@ class TestYumFinder(BaseYumTest):
         self.patch(finder, 'test_url').return_value = False
         self.assertRaises(
             soufi.exceptions.SourceNotFound, finder.get_source_url
+        )
+        walk_binary.assert_called_once_with(name)
+        walk_src.assert_called_once_with(name, None)
+
+    def test_get_source_url_raises_on_source_repomd_download_error(self):
+        name = self.factory.make_string()
+        finder = self.make_finder(name=name)
+        walk_src = self.patch(finder, '_walk_source_repos')
+        walk_src.side_effect = Exception()
+        walk_binary = self.patch(finder, '_walk_binary_repos')
+        walk_binary.return_value = (name, None)
+        self.assertRaises(
+            soufi.exceptions.DownloadError, finder.get_source_url
         )
         walk_binary.assert_called_once_with(name)
         walk_src.assert_called_once_with(name, None)
@@ -354,7 +379,7 @@ class TestYumFinderHelpers(BaseYumTest):
         yum.get_repomd(self.queue, url)
         lxml.assert_not_called()
         compress.assert_not_called()
-        self.queue.put.assert_called_once_with((None, None))
+        self.queue.put.assert_called_once_with((load.side_effect,))
 
     def test_lookup_in_repomd(self):
         # Mock up a successful package lookup
@@ -413,6 +438,24 @@ class TestYumFinderHelpers(BaseYumTest):
         response = yum.do_task('a', 'b', 'c')
         self.assertEqual(data, response)
         process.return_value.terminate.assert_called_once_with()
+
+    def test_do_task_reraises_exceptions(self):
+        # Actually run a job via do_task and ensure that the resulting
+        # exception is intact
+        data = self.factory.make_string('response')
+        err = self.assertRaises(RuntimeError, yum.do_task, kaboom, data)
+        self.assertEqual(data, str(err))
+
+
+# A simple subprocess function that throws a test exception.  Used by
+# TestYumFinderHelpers.test_do_task_reraises_exceptions
+def kaboom(queue, data):
+    try:
+        raise RuntimeError(data)
+    except Exception as e:
+        queue.put((e,))
+    # This should never get called, but just in case...
+    queue.put([])
 
 
 class TestYumDiscoveredSource(base.TestCase):

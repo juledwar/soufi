@@ -1,6 +1,6 @@
 # Copyright (c) 2021 Cisco Systems, Inc. and its affiliates
 # All rights reserved.
-
+import functools
 import pathlib
 
 from launchpadlib.launchpad import Launchpad
@@ -23,22 +23,28 @@ class UbuntuFinder(finder.SourceFinder):
         urls = tuple(sorted(source.sourceFileUrls()))
         return UbuntuDiscoveredSource(urls, timeout=self.timeout)
 
-    def get_archive(self):
+    # NOTE(nic): launchpadlib is not thread-safe, and its objects cannot be
+    #  pickled, which means we cannot use self._cache here, as it assumes both.
+    #  But this call is expensive, so attempt to minimize remote calls
+    #  within threads, at least.  This will cause duplicated work in
+    #  concurrent applications, which sadly cannot be avoided.
+    #  See: https://bugs.launchpad.net/launchpadlib/+bug/822847
+    # NOTE(nic): workaround an apparent bug in Python 3.7 where the default
+    # maxsize for the functools.lru_cache decorator does not work
+    @classmethod
+    @functools.lru_cache(maxsize=128)
+    def get_archive(cls):
         """Retrieve, and cache, the LP distro main archive object."""
-
-        def inner():
-            cachedir = pathlib.Path.home().joinpath(".launchpadlib", "cache")
-            lp = Launchpad.login_anonymously(
-                "soufi",
-                "production",
-                cachedir,
-                version="devel",
-                timeout=self.timeout,
-            )
-            distribution = lp.distributions[self.distro]
-            return distribution.main_archive
-
-        return self._cache.get_or_create('get_archive', inner)
+        cachedir = pathlib.Path.home().joinpath(".launchpadlib", "cache")
+        lp = Launchpad.login_anonymously(
+            "soufi",
+            "production",
+            cachedir,
+            version="devel",
+            timeout=cls.timeout,
+        )
+        distribution = lp.distributions[cls.distro]
+        return distribution.main_archive
 
     def get_build(self):
         bins = self.lp_archive.getPublishedBinaries(
