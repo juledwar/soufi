@@ -80,14 +80,14 @@ class YumFinder(finder.SourceFinder, metaclass=abc.ABCMeta):
         try:
             source_name, source_ver = self._walk_binary_repos(self.name)
         except Exception as e:
-            raise exceptions.DownloadError(e)
+            raise exceptions.DownloadError from e
         if source_name is None:
             raise exceptions.SourceNotFound
 
         try:
             url = self._walk_source_repos(source_name, source_ver)
         except Exception as e:
-            raise exceptions.DownloadError(e)
+            raise exceptions.DownloadError from e
         if url is None:
             raise exceptions.SourceNotFound
 
