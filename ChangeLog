@@ -1,9 +1,12 @@
 CHANGES
 =======
 
-2022.02.07
+2022.03.04
 ----------
 
+* Release 2022.03.04
+* Bugfix: allow for empty responses from do\_task
+* Catch all failures from repomd loads, add warnings, docs (#22)
 * Release 2022.02.07
 * Extend caching behavior to all finders, add functional tests
 * Use dogpile.cache + pylru instead of functools.lru\_cache, rewrite YumFinder
