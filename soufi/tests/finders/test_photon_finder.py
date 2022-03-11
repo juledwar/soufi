@@ -130,6 +130,7 @@ class TestPhotonFinder(BasePhotonTest):
         top_data = self.make_top_page_content(top_repos)
         page1 = self.make_top_page_content(repos[:3])
         page2 = self.make_top_page_content(repos[3:])
+        self.patch(finder, 'test_url').return_value = True
         get = self.patch(requests, 'get')
         # Set up responses for the top index, and the packages indexes for each
         # item in repos.
@@ -164,6 +165,7 @@ class TestPhotonFinder(BasePhotonTest):
         finder = self.make_finder()
         top_data = self.make_top_page_content(['6.0/', '9.0/'])
         data = self.make_top_page_content(['1_base_x86_64'])
+        self.patch(finder, 'test_url').return_value = True
         get = self.patch(requests, 'get')
         # The first index page listed is actually no good
         get.side_effect = (
@@ -171,6 +173,31 @@ class TestPhotonFinder(BasePhotonTest):
             self.make_response(b'', requests.codes.not_found),
             self.make_response(data, requests.codes.ok),
         )
+        # We should only have one source repo directory available
+        result = finder.get_binary_repos()
+        expected = [f"{photon.PHOTON_PACKAGES}/6.0/1_base_x86_64"]
+        self.assertEqual(expected, result)
+        get.assert_has_calls(
+            [
+                mock.call(photon.PHOTON_PACKAGES, timeout=30),
+                mock.call(photon.PHOTON_PACKAGES + '/9.0/', timeout=30),
+                mock.call(photon.PHOTON_PACKAGES + '/6.0/', timeout=30),
+            ]
+        )
+
+    def test__get_binary_repos_subdir_failure_omits_empty_repo_dirs(self):
+        finder = self.make_finder()
+        top_data = self.make_top_page_content(['6.0/', '9.0/'])
+        data = self.make_top_page_content(['1_base_x86_64'])
+        # All repos in the top content are available
+        get = self.patch(requests, 'get')
+        get.side_effect = (
+            self.make_response(top_data, requests.codes.ok),
+            self.make_response(data, requests.codes.ok),
+            self.make_response(data, requests.codes.ok),
+        )
+        # The first repo candidate contains no repo data
+        self.patch(finder, 'test_url').side_effect = (False, True)
         # We should only have one source repo directory available
         result = finder.get_binary_repos()
         expected = [f"{photon.PHOTON_PACKAGES}/6.0/1_base_x86_64"]

@@ -3,6 +3,7 @@
 
 import abc
 import lzma
+import pickle  # nosec
 import warnings
 from multiprocessing import Process, Queue
 from types import SimpleNamespace
@@ -230,7 +231,9 @@ def do_task(target, *args):
     queue = Queue()
     process = Process(target=target, args=(queue,) + args)
     process.start()
-    response = queue.get()
+    # We don't want to wait *forever*, but jobs can take several minutes to
+    # complete, so wait a relatively long time
+    response = queue.get(timeout=600)
     if process.is_alive():
         process.terminate()
     # re-raise exceptions thrown in child processes; this should keep them
@@ -253,9 +256,18 @@ def get_repomd(queue, url):
     try:
         repo = repomd.load(url)
     except Exception as e:
-        # Send exceptions back to the caller, just like anything else.  It's
-        # up to the receiver to inspect and re-raise
-        queue.put((e,))
+        # Try and send exceptions back to the caller, just like anything
+        # else.  It's up to the receiver to inspect and re-raise.  If the
+        # exception cannot be serialized, send back a generic Exception.
+        try:
+            pickle.dumps(e)
+        except Exception:
+            e = Exception(
+                f"Could not serialize {e.__class__.__name__}, "
+                f"re-raising as plain Exception with msg: {str(e)}"
+            )
+
+        queue.put((e,), timeout=YumFinder.timeout)
         return
     payload = repomd.defusedxml.lxml.tostring(repo._metadata)
     queue.put((str(repo.baseurl), lzma.compress(payload)))
@@ -281,7 +293,7 @@ def serialize_package(package):
 
 def lookup_in_repomd(queue, baseurl, repomd_xml, name):
     if None in (baseurl, repomd_xml):
-        queue.put([])
+        queue.put([], timeout=YumFinder.timeout)
         return
     payload = lzma.decompress(repomd_xml)
     repo = repomd.Repo(baseurl, repomd.defusedxml.lxml.fromstring(payload))
