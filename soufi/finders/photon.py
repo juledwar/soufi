@@ -47,9 +47,14 @@ class PhotonFinder(yum_finder.YumFinder):
         )
 
     def get_binary_repos(self):
-        return self._get_repos(
-            "//a[text()[not(contains(.,'srpms'))][contains(.,'x86_64')]]/text()"  # noqa: E501
-        )
+        """Retrieve a list of all repo URLs for binary RPM packages.
+
+        Photon OS does not reliably publish repodata for all releases,
+        so double-check all candidate repo dirs before using.
+        """
+        xpath = "//a[text()[not(contains(.,'srpms'))][contains(.,'x86_64')]]/text()"  # noqa: E501
+        suffix = 'repodata/repomd.xml'
+        return [r for r in self._get_repos(xpath) if self.test_url(r + suffix)]
 
     def _walk_source_repos(self, name, version=None):
         # Photon OS does not provide repomd.xml files for their source

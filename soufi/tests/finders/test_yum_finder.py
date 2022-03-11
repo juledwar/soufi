@@ -1,5 +1,6 @@
 # Copyright (c) 2021 Cisco Systems, Inc. and its affiliates
 # All rights reserved.
+import io
 import lzma
 import string
 import urllib
@@ -379,7 +380,26 @@ class TestYumFinderHelpers(BaseYumTest):
         yum.get_repomd(self.queue, url)
         lxml.assert_not_called()
         compress.assert_not_called()
-        self.queue.put.assert_called_once_with((load.side_effect,))
+        self.queue.put.assert_called_once_with((load.side_effect,), timeout=30)
+
+    def test_get_repomd_unserializable_http_error(self):
+        # Ibid, but initializing the HTTPError with a live file pointer will
+        # make it refuse to serialize
+        url = self.factory.make_url()
+        fp = io.BufferedReader(io.StringIO())
+        load = self.patch(repomd, 'load')
+        load.side_effect = urllib.error.HTTPError(None, None, None, None, fp)
+        lxml = self.patch(repomd.defusedxml.lxml, 'tostring')
+        compress = self.patch(lzma, 'compress')
+
+        # Ensure that we get a re-raised plain Exception
+        yum.get_repomd(self.queue, url)
+        lxml.assert_not_called()
+        compress.assert_not_called()
+        self.queue.put.assert_called_once_with((mock.ANY,), timeout=30)
+        self.assertIn(
+            're-raising as plain Exception', str(self.queue.put.call_args)
+        )
 
     def test_lookup_in_repomd(self):
         # Mock up a successful package lookup
@@ -412,7 +432,7 @@ class TestYumFinderHelpers(BaseYumTest):
         yum.lookup_in_repomd(self.queue, None, repomd_xml, name)
         decompress.assert_not_called()
         repo.assert_not_called()
-        self.queue.put.assert_called_once_with([])
+        self.queue.put.assert_called_once_with([], timeout=30)
 
     def test_lookup_in_repomd_no_repoxml(self):
         # Ibid.
@@ -424,7 +444,7 @@ class TestYumFinderHelpers(BaseYumTest):
         yum.lookup_in_repomd(self.queue, baseurl, None, name)
         decompress.assert_not_called()
         repo.assert_not_called()
-        self.queue.put.assert_called_once_with([])
+        self.queue.put.assert_called_once_with([], timeout=30)
 
     def test_do_task(self):
         # Mock up a process that does not exit upon return
