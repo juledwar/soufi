@@ -11,6 +11,18 @@ class SourceNotFound(Exception):
 
 
 class DownloadError(Exception):
-    """Raised when source cannot be downloaded."""
+    """Raised when source cannot be downloaded.
 
-    pass
+    This is most commonly raised due to HTTPError exceptions, so this will
+    also surface the status code from the HTTP response as a convenience.
+    """
+
+    status_code = None
+
+    def __init__(self, *args, **kwargs):
+        for arg in args:
+            try:
+                self.status_code = arg.response.status_code
+                break
+            except AttributeError:
+                continue

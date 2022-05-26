@@ -1,6 +1,6 @@
 bandit==1.7.2
 build>=0.7.0
-black==22.1.0
+black>=22.3.0
 coverage==6.3
 fixtures==3.0.0
 flake8==4.0.1

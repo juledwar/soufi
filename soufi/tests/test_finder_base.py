@@ -159,13 +159,14 @@ class TestDiscoveredSourceBase(base.TestCase):
         get.return_value = response
 
         tds = self.TestDiscoveredSource(urls=[])
-        self.assertRaises(
+        exc = self.assertRaises(
             exceptions.DownloadError,
             tds.download_file,
             tmpdir,
             target,
             url,
         )
+        self.assertEqual(response.status_code, exc.status_code)
 
         expected_path = pathlib.Path(tmpdir) / target
         get.assert_called_once_with(url, stream=True, timeout=30)
