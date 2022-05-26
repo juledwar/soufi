@@ -242,9 +242,10 @@ class TestAlpineDiscoveredSource(base.TestCase):
         # Make the tar file and populate it:
         _, tar_file_name = tempfile.mkstemp(dir=tmpdir)
         with tarfile.open(name=tar_file_name, mode='w') as tar:
-            self.assertRaises(
+            exc = self.assertRaises(
                 exceptions.DownloadError, ads.populate_archive, tmpdir, tar
             )
+            self.assertIsNone(exc.status_code)
 
     def test_populate_archive_with_file_scheme(self):
         tmpdir = self.useFixture(fixtures.TempDir()).path
