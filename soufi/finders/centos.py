@@ -11,7 +11,7 @@ from lxml import html  # nosec
 import soufi.finders.yum as yum_finder
 from soufi import finder
 
-VAULT = "https://vault.centos.org/centos"
+VAULT = "https://vault.centos.org/centos/"
 DEFAULT_SEARCH = ('BaseOS', 'os', 'updates', 'extras')
 # Optimal search dirs considered a useful extended set to inspect in
 # addition to the defaults.
@@ -23,7 +23,7 @@ OPTIMAL_SEARCH = ('AppStream', 'PowerTools', 'fasttrack')
 # it is necessary to also check the main mirror when looking for the "current"
 # releases.  Note that the connection is unencrypted, and no HTTPS endpoint
 # is provided.
-MIRROR = "http://mirror.centos.org/centos"
+MIRROR = "http://mirror.centos.org/centos/"
 
 
 class CentosFinder(yum_finder.YumFinder):
