@@ -1,6 +1,13 @@
 CHANGES
 =======
 
+2022.06.07
+----------
+
+* Release 2202.06.07
+* Add a status\_code attribute to DownloadError exceptions
+* Bugfix: Use canonical URLs for CentOS auto-discovery
+
 2022.03.14
 ----------
 
