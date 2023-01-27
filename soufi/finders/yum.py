@@ -4,6 +4,7 @@
 import abc
 import lzma
 import pickle  # nosec
+import sys
 import warnings
 from multiprocessing import Process, Queue
 from types import SimpleNamespace
@@ -230,7 +231,20 @@ def do_task(target, *args):
     """Run the target callable in a subprocess and return its response."""
     queue = Queue()
     process = Process(target=target, args=(queue,) + args)
-    process.start()
+    try:
+        process.start()
+    except RuntimeError:
+        sys.exit(
+            """
+FATAL: Running this finder directly from the global scope is not supported on
+       this platform.  To use this finder, call it instead from the main
+       module, e.g.:
+
+           if __name__ == '__main__':
+               soufi.finder.factory(*args, **kwargs).find()
+
+Aborting."""
+        )
     # We don't want to wait *forever*, but jobs can take several minutes to
     # complete, so wait a relatively long time
     response = queue.get(timeout=600)
