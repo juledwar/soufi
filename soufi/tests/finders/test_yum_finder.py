@@ -478,6 +478,16 @@ class TestYumFinderHelpers(BaseYumTest):
         err = self.assertRaises(RuntimeError, yum.do_task, kaboom, data)
         self.assertEqual(data, str(err))
 
+    def test_do_task_handles_spawn_errors_on_silly_platforms(self):
+        # This simulates calling `process.start()` from the global scope on
+        # platforms that do not support such things.  The default traceback
+        # is not intrinsically helpful, so test that we kick back a more
+        # useful error message.  See issue #31.
+        process = self.patch(yum, 'Process')
+        process.return_value.start.side_effect = RuntimeError
+        err = self.assertRaises(SystemExit, yum.do_task, None)
+        self.assertIn('FATAL: ', str(err))
+
 
 # A simple subprocess function that throws a test exception.  Used by
 # TestYumFinderHelpers.test_do_task_reraises_exceptions
