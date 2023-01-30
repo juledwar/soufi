@@ -5,6 +5,7 @@ import abc
 import lzma
 import pickle  # nosec
 import sys
+import textwrap
 import warnings
 from multiprocessing import Process, Queue
 from types import SimpleNamespace
@@ -233,18 +234,22 @@ def do_task(target, *args):
     process = Process(target=target, args=(queue,) + args)
     try:
         process.start()
-    except RuntimeError:
-        sys.exit(
-            """
-FATAL: Running this finder directly from the global scope is not supported on
-       this platform.  To use this finder, call it instead from the main
-       module, e.g.:
+    except RuntimeError as e:
+        if 'not using fork' in str(e):
+            sys.exit(
+                textwrap.dedent(
+                    """
+                FATAL: Running this finder directly from the global scope is
+                not supported on this platform.  To use this finder, call it
+                instead from the main module, e.g.:
 
-           if __name__ == '__main__':
-               soufi.finder.factory(*args, **kwargs).find()
+                   if __name__ == '__main__':
+                       soufi.finder.factory(*args, **kwargs).find()
 
-Aborting."""
-        )
+                Aborting."""
+                )
+            )
+        raise
     # We don't want to wait *forever*, but jobs can take several minutes to
     # complete, so wait a relatively long time
     response = queue.get(timeout=600)
