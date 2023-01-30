@@ -484,9 +484,17 @@ class TestYumFinderHelpers(BaseYumTest):
         # is not intrinsically helpful, so test that we kick back a more
         # useful error message.  See issue #31.
         process = self.patch(yum, 'Process')
-        process.return_value.start.side_effect = RuntimeError
+        process.return_value.start.side_effect = RuntimeError(
+            'Simulating a platform that is not using fork to start children'
+        )
         err = self.assertRaises(SystemExit, yum.do_task, None)
         self.assertIn('FATAL: ', str(err))
+
+    def test_do_task_leaves_other_spawn_errors_alone(self):
+        # As per the above, other RuntimeError exceptions should pass through
+        process = self.patch(yum, 'Process')
+        process.return_value.start.side_effect = RuntimeError
+        self.assertRaises(RuntimeError, yum.do_task, None)
 
 
 # A simple subprocess function that throws a test exception.  Used by
