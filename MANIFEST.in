@@ -1,9 +1,0 @@
-include README.rst
-include requirements.txt
-recursive-include soufi *.py
-prune soufi/tests
-prune soufi/testing
-prune soufi/functional
-prune tools
-exclude .*
-prune .*

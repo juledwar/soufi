@@ -22,7 +22,6 @@ from soufi.testing import base
 
 
 class TestAlpineFinder(base.TestCase):
-
     # This test suite uses static test data. This is against my normal
     # policies of using a factory where possible, but creating an aports
     # repo is just too complex. The data on disk contains a handful of
@@ -223,7 +222,8 @@ class TestAlpineDiscoveredSource(base.TestCase):
             tar_file_name, expected_file_name, content
         )
         warn.assert_called_once_with(
-            f'No checksum for source file {pathname}, cannot verify'
+            f'No checksum for source file {pathname}, cannot verify',
+            stacklevel=1,
         )
 
     def test_populate_archive_raises_on_mismatched_checksum(self):

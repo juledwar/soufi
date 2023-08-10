@@ -1,0 +1,42 @@
+#!/bin/sh
+
+# This is arguably naive, but constraining to a particular environment
+# appears to be unnecessary, and the flexibility may come in handy later
+: ${HATCH_ENV_ACTIVE:?'run this script as "hatch run compile-requirements"'}
+
+set -x
+
+# This is intended to be run from the hatch script 'compile-requirements'
+# which executes it inside a known container image to get a repeatable
+# output. Make sure $PWD is set to the top of the project tree, which
+# depends on where the volume is mounted in the container.
+REQ_DIR=requirements
+
+compile () {
+  local output
+  output=${1:?required}
+  shift
+
+  pip-compile \
+    --verbose \
+    --no-header \
+    --annotate \
+    --rebuild \
+    --upgrade \
+    --generate-hashes \
+    --allow-unsafe \
+    $* --output-file $output pyproject.toml
+}
+
+python -m venv /tmp/venv-soufi
+. /tmp/venv-soufi/bin/activate
+pip install --upgrade --require-hashes \
+    --disable-pip-version-check \
+    -r ${REQ_DIR}/requirements-bootstrap.txt
+rm -rf ${REQ_DIR}
+mkdir -p ${REQ_DIR}
+
+# Any/all switches must come after the output filename!
+compile ${REQ_DIR}/requirements.txt
+compile ${REQ_DIR}/requirements-test.txt --extra test
+compile ${REQ_DIR}/requirements-bootstrap.txt --extra bootstrap

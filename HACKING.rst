@@ -4,12 +4,12 @@ Hacking on Soufi
 Running tests
 -------------
 
-The test suite can be run via the `tox` utility:
+The test suite can be run via the `hatch` utility:
 
 
 ::
 
-    tox
+    hatch run ci
 
 will run the Python 3 tests, the PEP8 tests, Bandit (security
 checker), and code formatting checks. Test coverage is also displayed
@@ -17,46 +17,46 @@ and without 100% test coverage the tests will fail.
 
 ::
 
-    tox -e py3 -- <test pattern>
+    hatch run py3 -- <test pattern>
 
 will run a subset of tests matching <test pattern>.
 
 ::
 
-    tox -e debug
+    hatch run debug
 
 runs all tests serially in debug mode allowing the use of debuggers like pdb.
 
 ::
 
-   tox -e test soufi.tests.test_file.TestClass.test_name
+   hatch run test soufi.tests.test_file.TestClass.test_name
 
 runs a single test in debug mode.
 
 ::
 
-    tox -e failing
+    hatch run failing
 
 runs only the tests that failed in the previous run.
 
-Other handy tox targets:
+Other handy hatch targets:
 
 ::
 
-    tox -e repl
+    hatch run ipython
 
-gives you an ipython prompt in the virtualenv used by tox.
+gives you an ipython prompt in the virtualenv used by hatch.
 
 ::
 
-    tox -e format
+    hatch run format
 
 reformats the code using Black and sorts imports using isort.
 Tests will not pass if there are errors, which you can check using
 
 ::
 
-    tox -e formatcheck
+    hatch run check
 
 
 Code structure

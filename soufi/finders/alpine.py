@@ -213,7 +213,8 @@ class AlpineDiscoveredSource(finder.DiscoveredSource):
                 self.verify_sha512sum(arcfile_name, self.sha512sums[name])
             else:
                 warnings.warn(
-                    f'No checksum for source file {name}, cannot verify'
+                    f'No checksum for source file {name}, cannot verify',
+                    stacklevel=1,
                 )
             tar.add(arcfile_name, arcname=name, filter=self.reset_tarinfo)
 

@@ -13,7 +13,6 @@ from soufi.testing import base
 
 
 class TestPythonFinder(base.TestCase):
-
     scenarios = [
         ('pypi', dict(index='pypi')),
         ('devpi', dict(index='devpi')),
