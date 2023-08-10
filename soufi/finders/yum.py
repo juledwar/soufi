@@ -44,7 +44,8 @@ class YumFinder(finder.SourceFinder, metaclass=abc.ABCMeta):
         if isinstance(self._cache.backend, NullBackend):
             warnings.warn(
                 "Use of the Null cache with the DNF/Yum finder is highly "
-                "ill-advised.  Please see the documentation."
+                "ill-advised.  Please see the documentation.",
+                stacklevel=1,
             )
 
     def generate_repos(self, repos, fallback):

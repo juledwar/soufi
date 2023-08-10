@@ -5,10 +5,10 @@ To release a new version of Soufi:
  2. Tag the current revision with the required release number, e.g.
     `git tag 2021.09.29`
  3. Build the package:
-    `tox -e build-python-package`
+    `hatch build`
  4. Upload the package to testpyi first to make sure it is ok:
-    `tox -e testpypi dist/*2021.9.29*`
- 5. I that looks ok, upload to the real pypi:
-    `tox -e pypi dist/*2021.9.29*`
+    `hatch run testpypi dist/*2021.9.29*`
+ 5. If that looks ok, upload to the real pypi:
+    `hatch run pypi dist/*2021.9.29*`
  6. Push the new tag to Github:
     `git push origin 2021.09.29`

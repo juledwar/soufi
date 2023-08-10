@@ -67,32 +67,21 @@ function create_venv() {
     # silently fail. We have a potentially deep directory structure when this
     # runs in Jenkins, so invoke pip directly from the Python interpreter in
     # the virtualenv.
-    ${VENV}/bin/python ${VENV}/bin/pip install --upgrade pip
-    ${VENV}/bin/python ${VENV}/bin/pip install tox virtualenv
-}
+    ${VENV}/bin/python ${VENV}/bin/pip install --upgrade \
+        --require-hashes \
+        --disable-pip-version-check \
+        -r ${REQ_DIR}/requirements-bootstrap.txt
 
-function get_git_hash() {
-    git rev-parse --short --verify HEAD
 }
 
 function get_package_name() {
-    python setup.py --name
-}
-
-function get_pbr_auto_version() {
-    python setup.py --version
+    # Can get this from `hatch project metadata` but requires jq to
+    # parse, this is easier.
+    echo 'soufi'
 }
 
 function get_package_version() {
-    local MODE=${1:-merge}
-    # Get PBR Auto Version
-    local PAU=$(get_pbr_auto_version)
-    local VERSION="${PAU}"
-    if [ "${MODE}" = 'premerge' ]; then
-        local GIT_HASH=$(get_git_hash)
-        VERSION="${PAU}+g${GIT_HASH}"
-    fi
-    echo ${VERSION}
+    hatch version
 }
 
 function clean_venv() {
@@ -113,7 +102,7 @@ function clean_python_all() {
 }
 
 function clean_tests() {
-    rm -rf ${ROOT}/{.tox/,.stestr/,.coverage,cover/}
+    rm -rf ${ROOT}/{.hatch/,.tox/,.stestr/,.coverage,cover/}
 }
 
 function clean_all() {
@@ -122,107 +111,50 @@ function clean_all() {
     clean_tests
 }
 
-function is_venv() {
-    ! python -c 'import sys; sys.exit(hasattr(sys, "real_prefix") or
-                                      (hasattr(sys, "base_prefix") and
-                                      sys.base_prefix != sys.prefix))' \
-                                      && RC=$? || RC=$?
-    return ${RC}
-}
-
-function run_tox() {
-    local TOX_ARGS=$@
+function run_hatch() {
+    local _ARGS=$@
 
     # Ensure our venv exists
     create_venv
-
     echo "Activating"
-    # tox is a bit weird. If you run tox directly by calling it from the
-    # VENV (ex. ${VENV}/bin/tox) then tox runs with the python inside the
-    # VENV but when it builds its own VENVs then it finds the python in its
-    # path which is *NOT* the one in the outer VENV. You have to first
-    # activate the VENV so that tox will only find that version of python.
     . ${VENV}/bin/activate
-    echo "Running tox ${TOX_ARGS}"
-    tox ${TOX_ARGS} || exit 1
+    echo "Running hatch ${_ARGS}"
+    hatch run install
+    hatch run ${_ARGS} || exit 1
 
 }
 
 function run_tests() {
-    run_tox $@
+    run_hatch ci
 }
 
 function run_coverage() {
-    run_tox -e cover
+    run_hatch cover
 }
 
-function _tox_build_python_package() {
-    function usage() {
-        cat << EOF 1>&2
-Usage: $0 [<options>]
-    -m <mode>
-        premerge: Build for premerge
-        merge: Merge builds (default)
-        tag: Tag builds
-    -h
-        Print this help and exit.
-EOF
-    }
+function build_python_package() {
+    echo "Checking/creating virtualenv"
+    create_venv
+    echo "Activating virtualenv"
+    . ${VENV}/bin/activate
 
-    local MODE='merge'
-    local OPTIND opt
-
-    while getopts ":hm:" opt; do
-        case $opt in
-            h)
-                usage
-                exit 0
-                ;;
-            m)
-                MODE=${OPTARG}
-                ;;
-            \?)
-                echo "Invalid option: -${OPTARG}" >&2
-                usage
-                exit 1
-                ;;
-        esac
-    done
-
-    # Old python build artificats can sometimes mess us up, so clean them up
+    # Old python build artifacts can sometimes mess us up, so clean them up
     # before we build our package.
     clean_python_packaging_files
 
     # Figure out our version
-    local PBR_VERSION=$(get_pbr_auto_version)
-    local VERSION=$(get_package_version "${MODE}")
-    if [ "${PBR_VERSION}" != "${VERSION}" ]; then
-        PBR_VERSION="${VERSION}"
-    fi
+    local VERSION=$(get_package_version)
 
     # Build the package
-    echo "Building python package"
-    PBR_VERSION=${PBR_VERSION} python setup.py sdist
+    echo "Building Python package"
+    hatch build
 
     # Make what we just built available to other functions.
     local PKG_NAME=$(get_package_name)
-    printf "PKG_NAME=${PKG_NAME}\nPKG_VERSION=${PBR_VERSION}" \
+    printf "PKG_NAME=${PKG_NAME}\nPKG_VERSION=${VERSION}" \
         > ${ROOT}/dist/build.vars
 }
 
-function build_python_package() {
-    # Note(cfb): We want to support a single entry point however we need the
-    #            build to run under tox which is inside a virtualenv, which is
-    #            in turn run inside a venv. So if we aren't running in a
-    #            venv/virtualenv, ask tox to re-run us.
-    #            Yes, I'm pure evil!
-    is_venv && RC=$? || RC=$?
-    if [ ${RC} -ne 0 ]; then
-        run_tox -e build-python-package -- $@
-    else
-        _tox_build_python_package $@ 
-    fi
-}
 
 function get_package() {
     . ${ROOT}/dist/build.vars

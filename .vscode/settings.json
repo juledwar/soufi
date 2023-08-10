@@ -1,5 +1,5 @@
 {
-    "python.pythonPath": "${workspaceFolder}/.tox/py3/bin/python3",
+    "python.pythonPath": "${workspaceFolder}/.hatch/bin/python3",
     "python.formatting.provider": "black",
     "python.formatting.blackArgs": [
         "--line-length",
@@ -19,7 +19,8 @@
         "**/.eggs": true,
         "**/.stestr/**": true,
         "**/.testrepository/**": true,
-        "**/.tox/**": true
+        "**/.tox/**": true,
+        "**/.hatch/**": true
     },
     "git.allowForcePush": true,
     "editor.wordWrapColumn": 79,
