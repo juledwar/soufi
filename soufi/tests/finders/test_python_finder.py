@@ -28,7 +28,7 @@ class TestPythonFinder(base.TestCase):
             kwargs['pyindex'] = self.factory.make_url()
         return python.PythonFinder(**kwargs)
 
-    def make_data(self, version, url):
+    def make_data(self, version, url, new_style=False):
         if self.index == 'devpi':
             result = dict()
             result['+links'] = []
@@ -42,6 +42,10 @@ class TestPythonFinder(base.TestCase):
                 dict(packagetype='sdist', url=url),
             ]
         }
+        urls = releases[version]
+
+        if new_style:
+            return dict(urls=urls)
         return dict(releases=releases)
 
     def make_response(self, data, code):
@@ -66,6 +70,18 @@ class TestPythonFinder(base.TestCase):
         finder = self.make_finder()
         url = self.factory.make_url()
         data = self.make_data(finder.version, url)
+
+        get = self.patch(requests, 'get')
+        get.return_value = self.make_response(data, requests.codes.ok)
+        found_url = finder.get_source_url()
+        self.assertEqual(found_url, url)
+        call = self.get_requests_call_for_scenario(finder)
+        self.assertIn(call, get.call_args_list)
+
+    def test_get_source_url_new_style(self):
+        finder = self.make_finder()
+        url = self.factory.make_url()
+        data = self.make_data(finder.version, url, new_style=True)
 
         get = self.patch(requests, 'get')
         get.return_value = self.make_response(data, requests.codes.ok)
