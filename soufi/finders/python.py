@@ -46,13 +46,18 @@ class PythonFinder(finder.SourceFinder):
             data = self.get_url(url).json()
         except exceptions.DownloadError:
             raise exceptions.SourceNotFound
-        releases = data['releases']
-        for version, release_data in releases.items():
-            if version != self.version:
-                continue
-            for item in release_data:
-                if item['packagetype'] == 'sdist':
-                    return item['url']
+        if 'releases' in data:
+            releases = data['releases']
+            for version, release_data in releases.items():
+                if version != self.version:
+                    continue
+                for item in release_data:
+                    if item['packagetype'] == 'sdist':
+                        return item['url']
+        elif 'urls' in data:
+            for entry in data['urls']:
+                if entry.get('packagetype') == 'sdist':
+                    return entry['url']
 
         # It should not be possible to get here unless the JSON returned
         # from the index is corrupted.
