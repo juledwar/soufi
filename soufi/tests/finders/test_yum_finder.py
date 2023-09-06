@@ -1,9 +1,7 @@
 # Copyright (c) 2021 Cisco Systems, Inc. and its affiliates
 # All rights reserved.
 import io
-import lzma
 import string
-import urllib
 from itertools import repeat
 from unittest import mock
 
@@ -355,47 +353,43 @@ class TestYumFinderHelpers(BaseYumTest):
     def test_get_repomd(self):
         # Mock up a successful repomd fetch
         url = self.factory.make_url()
-        repo = self.patch(repomd, 'load')
-        lxml = self.patch(repomd.defusedxml.lxml, 'tostring')
-        lxml.return_value = b"<xml>Test</xml>"
-        compress = self.patch(lzma, 'compress')
+        self.patch(requests, 'get')
+        lxml = self.patch(repomd.defusedxml.lxml, 'parse')
+        package = mock.MagicMock()
+        lxml.return_value.getroot.return_value = [package]
 
-        # Ensure that get_repomd re-serializes the object XML and returns a
-        # compressed payload
         yum.get_repomd(self.queue, url)
-        compress.assert_called_once_with(lxml.return_value)
+        # Mocking out all the various and sundry Package properties would be
+        # tedious, and we don't really care about anything past the package
+        # name anyhow
         self.queue.put.assert_called_once_with(
-            (str(repo.return_value.baseurl), compress.return_value)
+            (url + "/", {package.findtext.return_value: [mock.ANY]})
         )
 
     def test_get_repomd_http_error(self):
         # Mock up a failure to fetch the repomd
         url = self.factory.make_url()
-        load = self.patch(repomd, 'load')
-        load.side_effect = urllib.error.HTTPError(None, None, None, None, None)
-        lxml = self.patch(repomd.defusedxml.lxml, 'tostring')
-        compress = self.patch(lzma, 'compress')
+        load = self.patch(requests, 'get')
+        load.side_effect = requests.exceptions.HTTPError()
+        lxml = self.patch(repomd.defusedxml.lxml, 'parse')
 
         # Ensure that get_repomd won't fill the cache with garbage
         yum.get_repomd(self.queue, url)
         lxml.assert_not_called()
-        compress.assert_not_called()
         self.queue.put.assert_called_once_with((load.side_effect,), timeout=30)
 
     def test_get_repomd_unserializable_http_error(self):
-        # Ibid, but initializing the HTTPError with a live file pointer will
+        # Ibid, but initializing the exception with a live file pointer will
         # make it refuse to serialize
         url = self.factory.make_url()
         fp = io.BufferedReader(io.StringIO())
-        load = self.patch(repomd, 'load')
-        load.side_effect = urllib.error.HTTPError(None, None, None, None, fp)
-        lxml = self.patch(repomd.defusedxml.lxml, 'tostring')
-        compress = self.patch(lzma, 'compress')
+        load = self.patch(requests, 'get')
+        load.side_effect = requests.exceptions.RequestException(fp)
+        lxml = self.patch(repomd.defusedxml.lxml, 'parse')
 
         # Ensure that we get a re-raised plain Exception
         yum.get_repomd(self.queue, url)
         lxml.assert_not_called()
-        compress.assert_not_called()
         self.queue.put.assert_called_once_with((mock.ANY,), timeout=30)
         self.assertIn(
             're-raising as plain Exception', str(self.queue.put.call_args)
@@ -404,46 +398,22 @@ class TestYumFinderHelpers(BaseYumTest):
     def test_lookup_in_repomd(self):
         # Mock up a successful package lookup
         baseurl = self.factory.make_url()
-        repomd_xml = self.factory.make_string()
         name = self.factory.make_string()
-        decompress = self.patch(lzma, 'decompress')
-        lxml = self.patch(repomd.defusedxml.lxml, 'fromstring')
-        repo = self.patch(repomd, 'Repo')
-        package = mock.MagicMock()
-        repo.return_value.findall.return_value = [package]
+        repomd = mock.MagicMock()
 
-        # lookup_in_repomd should decompress/rehydrate a repomd object
-        yum.lookup_in_repomd(self.queue, baseurl, repomd_xml, name)
-        decompress.assert_called_once_with(repomd_xml)
-        lxml.assert_called_once_with(decompress.return_value)
-        repo.assert_called_once_with(baseurl, lxml.return_value)
-        # The response should be converted into a "simplified package"
+        yum.lookup_in_repomd(self.queue, baseurl, repomd, name)
+        repomd.get.assert_called_once_with(name, [])
         self.queue.put.assert_called_once_with(
-            [yum.serialize_package(package)]
+            repomd.get.return_value, timeout=30
         )
 
     def test_lookup_in_repomd_no_baseurl(self):
         # Ensure that calling lookup_in_repomd without valid args does no work
-        repomd_xml = self.factory.make_string()
         name = self.factory.make_string()
-        decompress = self.patch(lzma, 'decompress')
-        repo = self.patch(repomd, 'Repo')
+        repomd = mock.MagicMock()
 
-        yum.lookup_in_repomd(self.queue, None, repomd_xml, name)
-        decompress.assert_not_called()
-        repo.assert_not_called()
-        self.queue.put.assert_called_once_with([], timeout=30)
-
-    def test_lookup_in_repomd_no_repoxml(self):
-        # Ibid.
-        baseurl = self.factory.make_url()
-        name = self.factory.make_string()
-        decompress = self.patch(lzma, 'decompress')
-        repo = self.patch(repomd, 'Repo')
-
-        yum.lookup_in_repomd(self.queue, baseurl, None, name)
-        decompress.assert_not_called()
-        repo.assert_not_called()
+        yum.lookup_in_repomd(self.queue, None, repomd, name)
+        repomd.get.assert_not_called()
         self.queue.put.assert_called_once_with([], timeout=30)
 
     def test_do_task(self):

@@ -2,7 +2,8 @@
 # All rights reserved.
 
 import abc
-import lzma
+import gzip
+import pathlib
 import pickle  # nosec
 import sys
 import textwrap
@@ -10,7 +11,9 @@ import warnings
 from multiprocessing import Process, Queue
 from types import SimpleNamespace
 
+import defusedxml.lxml
 import repomd
+import requests
 from dogpile.cache.backends.null import NullBackend
 
 from soufi import exceptions, finder
@@ -116,12 +119,12 @@ class YumFinder(finder.SourceFinder, metaclass=abc.ABCMeta):
             version = self.version
         locations = set()
         for repo_url in self.generate_source_repos():
-            baseurl, repo_xml = self._cache.get_or_create(
+            baseurl, repo = self._cache.get_or_create(
                 f"repo-{repo_url}",
                 do_task,
                 creator_args=([get_repomd, repo_url], {}),
             )
-            for package in do_task(lookup_in_repomd, baseurl, repo_xml, name):
+            for package in do_task(lookup_in_repomd, baseurl, repo, name):
                 # If the package version in the repomd is our version,
                 # it's easy.  Note that we want to match epoch-full and
                 # epoch-less version formats.
@@ -144,12 +147,12 @@ class YumFinder(finder.SourceFinder, metaclass=abc.ABCMeta):
     def _walk_binary_repos(self, name):
         packages = set()
         for repo_url in self.generate_binary_repos():
-            baseurl, repo_xml = self._cache.get_or_create(
+            baseurl, repo = self._cache.get_or_create(
                 f"repo-{repo_url}",
                 do_task,
                 creator_args=([get_repomd, repo_url], {}),
             )
-            for package in do_task(lookup_in_repomd, baseurl, repo_xml, name):
+            for package in do_task(lookup_in_repomd, baseurl, repo, name):
                 # If we have a binary package matching our version, but
                 # with a different name than the corresponding source
                 # package, return the NVR fields
@@ -263,18 +266,50 @@ def do_task(target, *args):
     return response
 
 
-# NOTE(nic): To allow for serializing repomd objects, We will instead
-#  re-serialize the object into its original XML, then re-create and use a
-#  new Repo object from the cached XML on every cache hit.  This makes cache
-#  hits relatively expensive, but they're still orders of magnitude faster
-#  than the alternative.  The XML is LZMA-compressed here to keep cache
-#  storage utilization low, and in the case of Redis caching, to reduce the
-#  amount of cache traffic sent over the wire.
+# NOTE(nic): stolen almost verbatim from repomd.load, except this one:
+#  - has timeouts
+#  - uses requests instead of urllib to do the heavy lifting
+#  - uses `lxml.parse` and file objects instead of `lxml.fromstring`
+#  - returns a plain dict instead of a Repo object
+def load_repomd(url):
+    timeout = YumFinder.timeout
+    baseurl = requests.utils.parse_url(url)
+    path = pathlib.PurePosixPath(baseurl.path)
+
+    # first we must get the repomd.xml file
+    repomd_path = path / 'repodata' / 'repomd.xml'
+    repomd_url = baseurl._replace(path=str(repomd_path))
+
+    with requests.get(repomd_url, stream=True, timeout=timeout) as r:
+        r.raw.decode_content = True
+        repomd_xml = defusedxml.lxml.parse(r.raw)
+
+    # determine the location of *primary.xml.gz from the repomd.xml
+    primary_element = repomd_xml.find(
+        'repo:data[@type="primary"]/repo:location', namespaces=repomd._ns
+    )
+    primary_path = path / primary_element.get('href')
+    primary_url = baseurl._replace(path=str(primary_path))
+
+    # download and consume *-primary.xml into a dict object for fast lookups.
+    # We will use repomd.Package objects rather than reimplement them,
+    # but only as an intermediate step (see `serialize_package`, below)
+    repo = {}
+    with requests.get(primary_url, stream=True, timeout=timeout) as r:
+        r.raw.decode_content = True
+        with gzip.GzipFile(fileobj=r.raw) as uncompressed:
+            for element in defusedxml.lxml.parse(uncompressed).getroot():
+                package = repomd.Package(element)
+                repo.setdefault(package.name, [])
+                repo[package.name].append(serialize_package(package))
+    return repo
+
+
 def get_repomd(queue, url):
     if not url.endswith('/'):
         url += '/'
     try:
-        repo = repomd.load(url)
+        repo = load_repomd(url)
     except Exception as e:
         # Try and send exceptions back to the caller, just like anything
         # else.  It's up to the receiver to inspect and re-raise.  If the
@@ -289,17 +324,18 @@ def get_repomd(queue, url):
 
         queue.put((e,), timeout=YumFinder.timeout)
         return
-    payload = repomd.defusedxml.lxml.tostring(repo._metadata)
-    queue.put((str(repo.baseurl), lzma.compress(payload)))
+    queue.put((url, repo))
 
 
 # NOTE(nic): repomd.Package object properties do XPath lookups into the
 #  ElementTree and other similar tricks on the backend, which makes them
 #  unsuitable for the IPC-based workflow we're trying to use, so we'll
-#  convert them into simple objects with identical names so that they can be
-#  easily pickled and passed around.  The upside is that we only need to
-#  carry over what we need to do package lookups.  The downside is that we only
-#  get what we've carried over.
+#  convert them into simple objects with identical field names so that they
+#  can be easily pickled and passed around.  The upside is that we only need
+#  to carry over what we need to do package lookups, reducing the space
+#  requirements by at least two orders of magnitude.  The downside is that we
+#  only get what we've carried over, but in practice that's the opposite of
+#  a problem.
 def serialize_package(package):
     return SimpleNamespace(
         name=str(package.name),
@@ -311,10 +347,8 @@ def serialize_package(package):
     )
 
 
-def lookup_in_repomd(queue, baseurl, repomd_xml, name):
-    if None in (baseurl, repomd_xml):
+def lookup_in_repomd(queue, baseurl, repo, name):
+    if None in (baseurl, repo):
         queue.put([], timeout=YumFinder.timeout)
         return
-    payload = lzma.decompress(repomd_xml)
-    repo = repomd.Repo(baseurl, repomd.defusedxml.lxml.fromstring(payload))
-    queue.put([serialize_package(p) for p in repo.findall(name)])
+    queue.put(repo.get(name, []), timeout=YumFinder.timeout)
