@@ -124,7 +124,7 @@ class YumFinder(finder.SourceFinder, metaclass=abc.ABCMeta):
                 do_task,
                 creator_args=([get_repomd, repo_url], {}),
             )
-            for package in do_task(lookup_in_repomd, baseurl, repo, name):
+            for package in repo.get(name, []):
                 # If the package version in the repomd is our version,
                 # it's easy.  Note that we want to match epoch-full and
                 # epoch-less version formats.
@@ -147,12 +147,12 @@ class YumFinder(finder.SourceFinder, metaclass=abc.ABCMeta):
     def _walk_binary_repos(self, name):
         packages = set()
         for repo_url in self.generate_binary_repos():
-            baseurl, repo = self._cache.get_or_create(
+            _, repo = self._cache.get_or_create(
                 f"repo-{repo_url}",
                 do_task,
                 creator_args=([get_repomd, repo_url], {}),
             )
-            for package in do_task(lookup_in_repomd, baseurl, repo, name):
+            for package in repo.get(name, []):
                 # If we have a binary package matching our version, but
                 # with a different name than the corresponding source
                 # package, return the NVR fields
@@ -345,10 +345,3 @@ def serialize_package(package):
         location=str(package.location),
         sourcerpm=str(package.sourcerpm),
     )
-
-
-def lookup_in_repomd(queue, baseurl, repo, name):
-    if None in (baseurl, repo):
-        queue.put([], timeout=YumFinder.timeout)
-        return
-    queue.put(repo.get(name, []), timeout=YumFinder.timeout)

@@ -202,7 +202,7 @@ class TestYumFinder(BaseYumTest):
         finder = self.make_finder(source_repos=src, binary_repos=bin)
         package = self.FakePackage(vr=finder.version)
         do_task = self.patch(yum, 'do_task')
-        do_task.side_effect = ([baseurl, None], [package])
+        do_task.return_value = (baseurl, {finder.name: [package]})
         self.patch(finder, 'test_url').return_value = False
         url = finder._walk_source_repos(finder.name)
         self.assertEqual(baseurl + package.location, url)
@@ -214,7 +214,7 @@ class TestYumFinder(BaseYumTest):
         finder = self.make_finder(source_repos=src, binary_repos=bin)
         package = self.FakePackage()
         do_task = self.patch(yum, 'do_task')
-        do_task.side_effect = ([baseurl, None], [package])
+        do_task.return_value = (baseurl, {finder.name: [package]})
         self.patch(finder, 'test_url').return_value = True
         url = finder._walk_source_repos(finder.name)
         self.assertEqual(baseurl + package.location, url)
@@ -226,7 +226,7 @@ class TestYumFinder(BaseYumTest):
         finder = self.make_finder(source_repos=src, binary_repos=bin)
         package = self.FakePackage()
         do_task = self.patch(yum, 'do_task')
-        do_task.side_effect = ([baseurl, None], [package])
+        do_task.return_value = (baseurl, {finder.name: [package]})
         self.patch(finder, 'test_url').return_value = False
         url = finder._walk_source_repos(finder.name)
         self.assertIsNone(url)
@@ -241,7 +241,7 @@ class TestYumFinder(BaseYumTest):
         srcrpm = self.make_package(n=n, v=v, r=r)
         package = self.FakePackage(vr=finder.version, sourcerpm=srcrpm)
         do_task = self.patch(yum, 'do_task')
-        do_task.side_effect = ([None, None], [package])
+        do_task.return_value = (None, {finder.name: [package]})
         name, version = finder._walk_binary_repos(finder.name)
         self.expectThat(name, Equals(n))
         self.expectThat(version, Equals(f"{v}-{r}"))
@@ -252,7 +252,7 @@ class TestYumFinder(BaseYumTest):
         finder = self.make_finder(source_repos=src, binary_repos=bin)
         package = self.FakePackage(vr=finder.version, sourcerpm='')
         do_task = self.patch(yum, 'do_task')
-        do_task.side_effect = ([None, None], [package])
+        do_task.return_value = (None, {finder.name: [package]})
         name, version = finder._walk_binary_repos(finder.name)
         self.assertIsNone(name)
         self.assertIsNone(version)
@@ -264,7 +264,7 @@ class TestYumFinder(BaseYumTest):
         package1 = self.FakePackage()
         package2 = self.FakePackage()
         do_task = self.patch(yum, 'do_task')
-        do_task.side_effect = ([None, None], [package1, package2])
+        do_task.return_value = (None, {finder.name: [package1, package2]})
         name, version = finder._walk_binary_repos(finder.name)
         self.assertIsNone(name)
         self.assertIsNone(version)
@@ -279,7 +279,7 @@ class TestYumFinder(BaseYumTest):
         srcrpm = self.make_package(n=n, v=v, r=r)
         package = self.FakePackage(sourcerpm=srcrpm)
         do_task = self.patch(yum, 'do_task')
-        do_task.side_effect = ([None, None], [package])
+        do_task.return_value = (None, {finder.name: [package]})
         name, version = finder._walk_binary_repos(finder.name)
         self.expectThat(name, Equals(n))
         self.expectThat(version, Equals(f"{v}-{r}"))
@@ -394,27 +394,6 @@ class TestYumFinderHelpers(BaseYumTest):
         self.assertIn(
             're-raising as plain Exception', str(self.queue.put.call_args)
         )
-
-    def test_lookup_in_repomd(self):
-        # Mock up a successful package lookup
-        baseurl = self.factory.make_url()
-        name = self.factory.make_string()
-        repomd = mock.MagicMock()
-
-        yum.lookup_in_repomd(self.queue, baseurl, repomd, name)
-        repomd.get.assert_called_once_with(name, [])
-        self.queue.put.assert_called_once_with(
-            repomd.get.return_value, timeout=30
-        )
-
-    def test_lookup_in_repomd_no_baseurl(self):
-        # Ensure that calling lookup_in_repomd without valid args does no work
-        name = self.factory.make_string()
-        repomd = mock.MagicMock()
-
-        yum.lookup_in_repomd(self.queue, None, repomd, name)
-        repomd.get.assert_not_called()
-        self.queue.put.assert_called_once_with([], timeout=30)
 
     def test_do_task(self):
         # Mock up a process that does not exit upon return
