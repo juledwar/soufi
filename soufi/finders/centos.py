@@ -94,12 +94,12 @@ class CentosFinder(yum_finder.YumFinder):
         """
         for dir in self._get_dirs():
             for subdir in self.repos:
-                url = f"{VAULT}/{dir}/{subdir}/Source/"
+                url = f"{VAULT.rstrip('/')}/{dir}/{subdir}/Source/"
                 if self.test_url(url + "repodata/"):
                     yield url
             if self.optimal_repos:
                 for subdir in OPTIMAL_SEARCH:
-                    url = f"{VAULT}/{dir}/{subdir}/Source/"
+                    url = f"{VAULT.rstrip('/')}/{dir}/{subdir}/Source/"
                     if self.test_url(url + "repodata/"):
                         yield url
 
@@ -112,8 +112,8 @@ class CentosFinder(yum_finder.YumFinder):
         """
 
         def _find_valid_repo_url(dir, subdir):
-            vault_url = f"{VAULT}/{dir}/{subdir}/x86_64/"
-            mirror_url = f"{MIRROR}/{dir}/{subdir}/x86_64/"
+            vault_url = f"{VAULT.rstrip('/')}/{dir}/{subdir}/x86_64/"
+            mirror_url = f"{MIRROR.rstrip('/')}/{dir}/{subdir}/x86_64/"
             for url in vault_url, mirror_url:
                 if self.test_url(url + "os/repodata/"):
                     yield url + "os/"

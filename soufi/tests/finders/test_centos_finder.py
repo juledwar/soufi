@@ -70,7 +70,7 @@ class TestCentosFinder(BaseCentosTest):
         test_url.return_value = True
         result = list(finder.get_source_repos())
         expected = [
-            f"{centos.VAULT}/{dir}/{subdir}/Source/"
+            f"{centos.VAULT}{dir}/{subdir}/Source/"
             for dir in dirs
             for subdir in subdirs
         ]
@@ -86,7 +86,7 @@ class TestCentosFinder(BaseCentosTest):
         test_url.return_value = True
         result = list(finder.get_source_repos())
         expected = [
-            f"{centos.VAULT}/{dir}/{subdir}/Source/"
+            f"{centos.VAULT}{dir}/{subdir}/Source/"
             for dir in dirs
             for subdir in (centos.DEFAULT_SEARCH + centos.OPTIMAL_SEARCH)
         ]
@@ -102,7 +102,7 @@ class TestCentosFinder(BaseCentosTest):
         test_url.return_value = True
         result = list(finder.get_binary_repos())
         expected = [
-            f"{centos.VAULT}/{dir}/{subdir}/x86_64/os/"
+            f"{centos.VAULT}{dir}/{subdir}/x86_64/os/"
             for dir in dirs
             for subdir in subdirs
         ]
@@ -118,7 +118,7 @@ class TestCentosFinder(BaseCentosTest):
         test_url.side_effect = itertools.cycle((False, True))
         result = list(finder.get_binary_repos())
         expected = [
-            f"{centos.VAULT}/{dir}/{subdir}/x86_64/"
+            f"{centos.VAULT}{dir}/{subdir}/x86_64/"
             for dir in dirs
             for subdir in subdirs
         ]
@@ -134,7 +134,7 @@ class TestCentosFinder(BaseCentosTest):
         test_url.side_effect = itertools.cycle((False, False, True))
         result = list(finder.get_binary_repos())
         expected = [
-            f"{centos.MIRROR}/{dir}/{subdir}/x86_64/os/"
+            f"{centos.MIRROR}{dir}/{subdir}/x86_64/os/"
             for dir in dirs
             for subdir in subdirs
         ]
@@ -150,7 +150,7 @@ class TestCentosFinder(BaseCentosTest):
         test_url.side_effect = itertools.cycle((False, False, False, True))
         result = list(finder.get_binary_repos())
         expected = [
-            f"{centos.MIRROR}/{dir}/{subdir}/x86_64/"
+            f"{centos.MIRROR}{dir}/{subdir}/x86_64/"
             for dir in dirs
             for subdir in subdirs
         ]
@@ -166,7 +166,7 @@ class TestCentosFinder(BaseCentosTest):
         test_url.return_value = True
         result = list(finder.get_binary_repos())
         expected = [
-            f"{centos.VAULT}/{dir}/{subdir}/x86_64/os/"
+            f"{centos.VAULT}{dir}/{subdir}/x86_64/os/"
             for dir in dirs
             for subdir in (centos.DEFAULT_SEARCH + centos.OPTIMAL_SEARCH)
         ]
@@ -182,7 +182,7 @@ class TestCentosFinder(BaseCentosTest):
         test_url.side_effect = itertools.cycle((False, True))
         result = list(finder.get_binary_repos())
         expected = [
-            f"{centos.VAULT}/{dir}/{subdir}/x86_64/"
+            f"{centos.VAULT}{dir}/{subdir}/x86_64/"
             for dir in dirs
             for subdir in (centos.DEFAULT_SEARCH + centos.OPTIMAL_SEARCH)
         ]
@@ -198,7 +198,7 @@ class TestCentosFinder(BaseCentosTest):
         test_url.side_effect = itertools.cycle((False, False, True))
         result = list(finder.get_binary_repos())
         expected = [
-            f"{centos.MIRROR}/{dir}/{subdir}/x86_64/os/"
+            f"{centos.MIRROR}{dir}/{subdir}/x86_64/os/"
             for dir in dirs
             for subdir in (centos.DEFAULT_SEARCH + centos.OPTIMAL_SEARCH)
         ]
@@ -214,7 +214,7 @@ class TestCentosFinder(BaseCentosTest):
         test_url.side_effect = itertools.cycle((False, False, False, True))
         result = list(finder.get_binary_repos())
         expected = [
-            f"{centos.MIRROR}/{dir}/{subdir}/x86_64/"
+            f"{centos.MIRROR}{dir}/{subdir}/x86_64/"
             for dir in dirs
             for subdir in (centos.DEFAULT_SEARCH + centos.OPTIMAL_SEARCH)
         ]
