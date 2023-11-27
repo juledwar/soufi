@@ -265,3 +265,18 @@ class FunctionalPythonTests(FunctionalFinderTests):
         url = 'https://files.pythonhosted.org/packages/0f/80/d8883f12689a55e333d221bb9a56c727e976f5a8e9dc862efeac9f40d296/SQLAlchemy-1.4.31.tar.gz'  # noqa: E501
         result = python.find()
         self.assertEqual([url], result.urls)
+
+
+class FunctionalAlmaTests(FunctionalFinderTests):
+    def test_find_binary_from_source(self):
+        alma = finder.factory(
+            'alma',
+            name='glibc-common',
+            version='2.34-60.el9_2.7',
+            s_type=SourceType.os,
+            cache_backend='dogpile.cache.memory_pickle',
+            cache_args=dict(cache_dict=FUNCTEST_CACHE),
+        )
+        url = 'https://repo.almalinux.org/vault/9.2/BaseOS/Source/Packages/glibc-2.34-60.el9_2.7.src.rpm'  # noqa: E501
+        result = alma.find()
+        self.assertEqual([url], result.urls)

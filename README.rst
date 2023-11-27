@@ -13,6 +13,7 @@ Currently supported finders are:
  - CentOS packages
  - Alpine packages
  - Photon OS packages
+ - Alma packages
  - NPM packages
  - Python sdists
  - Golang modules

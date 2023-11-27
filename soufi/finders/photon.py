@@ -1,8 +1,6 @@
 # Copyright (c) 2021 Cisco Systems, Inc. and its affiliates
 # All rights reserved.
 
-# Bandit reports this as vulnerable but it's OK in lxml now,
-# defusedxml's lxml support is deprecated as a result.
 from lxml import html
 
 import soufi.exceptions
