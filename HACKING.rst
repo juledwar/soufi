@@ -11,9 +11,8 @@ The test suite can be run via the `hatch` utility:
 
     hatch run ci
 
-will run the Python 3 tests, the PEP8 tests, Bandit (security
-checker), and code formatting checks. Test coverage is also displayed
-and without 100% test coverage the tests will fail.
+will run the Python 3 tests, the PEP8 tests, and code formatting checks. Test
+coverage is also displayed and without 100% test coverage the tests will fail.
 
 ::
 

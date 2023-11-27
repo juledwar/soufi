@@ -26,6 +26,7 @@ class TestFinderFactory(base.TestCase):
 
     def test_supported_types(self):
         expected = [
+            'alma',
             'alpine',
             'centos',
             'debian',
