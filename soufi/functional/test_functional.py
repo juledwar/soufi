@@ -3,7 +3,7 @@
 
 import logging
 import tempfile
-from subprocess import run as run_cmd  # nosec
+from subprocess import run as run_cmd
 
 import testtools
 
@@ -125,7 +125,9 @@ class FunctionalAlpineTests(FunctionalFinderTests):
     def test_find_package(self):
         cmd = 'git clone --depth 1 --branch v3.13.5 git://git.alpinelinux.org/aports'.split()  # noqa: E501
         with tempfile.TemporaryDirectory('.aports') as aports_dir:
-            output = run_cmd(cmd + [aports_dir], capture_output=True)  # nosec
+            output = run_cmd(
+                cmd + [aports_dir], capture_output=True  # noqa: S603
+            )
             msg = "\n".join(
                 [output.stderr.decode('utf-8'), output.stdout.decode('utf-8')]
             )

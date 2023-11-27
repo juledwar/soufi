@@ -44,7 +44,6 @@ dependencies = [
 
 [project.optional-dependencies]
 test = [
-    "bandit[toml]",
     "build",
     "black",
     "coverage[toml]",
@@ -119,12 +118,10 @@ scripts.check = [
     "isort --check soufi",
     "ruff soufi",
 ]
-scripts.bandit_ = ["bandit -c pyproject.toml -r soufi"]
 # Special target to run all tests needed in CI.
 scripts.ci = [
     "py3",
     "check",
-    "bandit_",
 ]
 scripts.cover = [
     "export PYTHON='coverage run --source soufi --parallel-mode'; stestr run",
@@ -183,7 +180,7 @@ use_parentheses = true
 
 [tool.ruff]
 cache-dir = "~/.cache/ruff"
-select = ["B", "C9", "D", "E", "F", "W"]
+select = ["B", "C9", "D", "E", "F", "S", "W"]
 line-length = 79
 show-source = true
 target-version = "py38"
@@ -212,6 +209,3 @@ ignore = [
 ]
 [tool.ruff.mccabe]
 max-complexity = 13
-
-[tool.bandit]
-exclude_dirs = ["soufi/_version.py"]
