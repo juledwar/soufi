@@ -4,7 +4,7 @@
 import abc
 import gzip
 import pathlib
-import pickle  # nosec
+import pickle
 import sys
 import textwrap
 import warnings

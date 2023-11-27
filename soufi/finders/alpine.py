@@ -5,7 +5,7 @@ import glob
 import hashlib
 import pathlib
 import shutil
-import subprocess  # nosec
+import subprocess
 import urllib
 import warnings
 from contextlib import closing
@@ -116,8 +116,11 @@ class AlpineFinder(finder.SourceFinder):
         try:
             # This must run with a CWD of where the APKBUILD is located,
             # since it can use relative paths to source other files.
-            output = subprocess.run(  # nosec
-                cmd, cwd=path.parent, capture_output=True, check=True
+            output = subprocess.run(
+                cmd,  # noqa: S603
+                cwd=path.parent,
+                capture_output=True,
+                check=True,
             )
             if output.stderr:
                 raise subprocess.SubprocessError(output.stderr)
@@ -244,7 +247,7 @@ class AlpineDiscoveredSource(finder.DiscoveredSource):
         tmp_file_name = pathlib.Path(temp_dir) / name
         with closing(
             # B310 restricts permitted schemes, but we only call with ftp here.
-            urllib.request.urlopen(url, timeout=self.timeout)  # nosec B310
+            urllib.request.urlopen(url, timeout=self.timeout)  # noqa: S310
         ) as ftp, open(tmp_file_name, 'wb') as f:
             shutil.copyfileobj(ftp, f)
         return tmp_file_name
