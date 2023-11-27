@@ -35,7 +35,12 @@ Install Soufi with pip::
 
    pip install soufi
 
-Using the command line:
+or, with the command-line tool::
+
+   pip install soufi[cli]
+
+Using the command line
+^^^^^^^^^^^^^^^^^^^^^^
 
 .. code:: bash
 
@@ -51,7 +56,8 @@ Using the command line:
     -rw-rw-r-- 1 juledwar juledwar 391740 May 20 15:20 zlib.tar.xz
 
 
-Using the API:
+Using the API
+^^^^^^^^^^^^^
 
 .. code:: python
 

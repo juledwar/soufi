@@ -246,7 +246,7 @@ class AlpineDiscoveredSource(finder.DiscoveredSource):
     def download_ftp_file(self, temp_dir, name, url):
         tmp_file_name = pathlib.Path(temp_dir) / name
         with closing(
-            # B310 restricts permitted schemes, but we only call with ftp here.
+            # S310 restricts permitted schemes, but we only call with ftp here.
             urllib.request.urlopen(url, timeout=self.timeout)  # noqa: S310
         ) as ftp, open(tmp_file_name, 'wb') as f:
             shutil.copyfileobj(ftp, f)
