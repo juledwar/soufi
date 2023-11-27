@@ -5,11 +5,17 @@
 import functools
 import os
 import shutil
+import sys
 
-import click
 import pylru
 
 from soufi import exceptions, finder
+
+try:
+    import click
+except ImportError:
+    sys.exit("CLI support not installed; please install soufi[cli]")
+
 
 # Configure a small-ish in-memory LRU cache to speed up operations
 LRU_CACHE = pylru.lrucache(size=512)

@@ -31,7 +31,6 @@ classifiers = [
 ]
 urls.Source = "https://github.com/juledwar/soufi"
 dependencies = [
-    "click>=7.1.2",
     "cryptography>=3.3.1",
     "launchpadlib>=1.10.13",
     "repomd>=0.2.1",
@@ -66,9 +65,12 @@ bootstrap = [
     "virtualenv",
     "wheel",
 ]
+cli = [
+    "click>=7.1.2",
+]
 
 [project.scripts]
-soufi = "soufi:main"
+soufi = "soufi.cli:main"
 
 [tool.hatch.version]
 source = "vcs"
@@ -167,8 +169,8 @@ omit = [
     'soufi/tests/*',
     'soufi/testing/*',
     'soufi/functional/*',
-    'soufi/__init__.py',
     'soufi/_version.py',
+    'soufi/cli.py',
 ]
 
 [tool.isort]
