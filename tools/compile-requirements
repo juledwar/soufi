@@ -40,3 +40,4 @@ mkdir -p ${REQ_DIR}
 compile ${REQ_DIR}/requirements.txt
 compile ${REQ_DIR}/requirements-test.txt --extra test
 compile ${REQ_DIR}/requirements-bootstrap.txt --extra bootstrap
+compile ${REQ_DIR}/requirements-cli.txt --extra cli
