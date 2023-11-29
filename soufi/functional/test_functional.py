@@ -269,8 +269,8 @@ class FunctionalPythonTests(FunctionalFinderTests):
 
 class FunctionalAlmaTests(FunctionalFinderTests):
     def test_find_binary_from_source(self):
-        alma = finder.factory(
-            'alma',
+        almalinux = finder.factory(
+            'almalinux',
             name='glibc-common',
             version='2.34-60.el9_2.7',
             s_type=SourceType.os,
@@ -278,5 +278,5 @@ class FunctionalAlmaTests(FunctionalFinderTests):
             cache_args=dict(cache_dict=FUNCTEST_CACHE),
         )
         url = 'https://repo.almalinux.org/vault/9.2/BaseOS/Source/Packages/glibc-2.34-60.el9_2.7.src.rpm'  # noqa: E501
-        result = alma.find()
+        result = almalinux.find()
         self.assertEqual([url], result.urls)
