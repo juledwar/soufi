@@ -48,12 +48,6 @@ class TestPythonFinder(base.TestCase):
             return dict(urls=urls)
         return dict(releases=releases)
 
-    def make_response(self, data, code):
-        fake_response = mock.MagicMock()
-        fake_response.json.return_value = data
-        fake_response.status_code = code
-        return fake_response
-
     def get_requests_call_for_scenario(self, finder):
         if self.index == 'devpi':
             return mock.call(
@@ -71,8 +65,7 @@ class TestPythonFinder(base.TestCase):
         url = self.factory.make_url()
         data = self.make_data(finder.version, url)
 
-        get = self.patch(requests, 'get')
-        get.return_value = self.make_response(data, requests.codes.ok)
+        get = self.patch_get_with_response(requests.codes.ok, json=data)
         found_url = finder.get_source_url()
         self.assertEqual(found_url, url)
         call = self.get_requests_call_for_scenario(finder)
@@ -83,8 +76,7 @@ class TestPythonFinder(base.TestCase):
         url = self.factory.make_url()
         data = self.make_data(finder.version, url, new_style=True)
 
-        get = self.patch(requests, 'get')
-        get.return_value = self.make_response(data, requests.codes.ok)
+        get = self.patch_get_with_response(requests.codes.ok, json=data)
         found_url = finder.get_source_url()
         self.assertEqual(found_url, url)
         call = self.get_requests_call_for_scenario(finder)
@@ -95,21 +87,13 @@ class TestPythonFinder(base.TestCase):
             # devpi returns data or 404.
             self.skipTest("Not applicable to devpi")
         finder = self.make_finder()
-        releases = {
-            'badversion': [
-                dict(packagetype='foobar', url='foobar'),
-            ]
-        }
-        data = dict(releases=releases)
         data = self.make_data('badversion', 'foobar')
 
-        get = self.patch(requests, 'get')
-        get.return_value = self.make_response(data, requests.codes.ok)
+        self.patch_get_with_response(requests.codes.ok, json=data)
         self.assertRaises(exceptions.SourceNotFound, finder.get_source_url)
 
     def test_get_source_info_raises_when_response_fails(self):
-        get = self.patch(requests, 'get')
-        get.return_value = self.make_response([], requests.codes.not_found)
+        self.patch_get_with_response(requests.codes.not_found)
         finder = self.make_finder()
         with testtools.ExpectedException(exceptions.SourceNotFound):
             finder.get_source_url()

@@ -1,8 +1,6 @@
 # Copyright (c) 2021 Cisco Systems, Inc. and its affiliates
 # All rights reserved.
 
-from unittest import mock
-
 import requests
 from testtools.matchers._basic import SameMembers
 
@@ -25,25 +23,14 @@ class TestGolangFinder(base.TestCase):
         )
         return golang.GolangFinder(**kwargs)
 
-    def patch_requests(self, method_name, code):
-        method = self.patch(requests, method_name)
-        response = requests.Response()
-        response.status_code = code
-        response.close = mock.MagicMock()
-        method.return_value = response
-        return method
-
     def test_raises_when_module_not_found(self):
         finder = self.make_finder()
-        self.patch_requests(
-            'head',
-            code=requests.codes.not_found,
-        )
+        self.patch_head_with_response(requests.codes.not_found)
         self.assertRaises(exceptions.SourceNotFound, finder.find)
 
     def test_finds_module(self):
         finder = self.make_finder()
-        head = self.patch_requests('head', code=requests.codes.ok)
+        head = self.patch_head_with_response(requests.codes.ok)
         source = finder.find()
         expected = [
             f"{golang.PUBLIC_PROXY}{finder.name.lower()}"
@@ -54,8 +41,8 @@ class TestGolangFinder(base.TestCase):
 
     def test_retries_with_get_if_head_fails(self):
         finder = self.make_finder()
-        head = self.patch_requests('head', code=requests.codes.not_allowed)
-        get = self.patch_requests('get', code=requests.codes.ok)
+        head = self.patch_head_with_response(requests.codes.not_allowed)
+        get = self.patch_get_with_response(requests.codes.ok)
         source = finder.find()
         expected = [
             f"{golang.PUBLIC_PROXY}{finder.name.lower()}"

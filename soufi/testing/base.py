@@ -6,6 +6,7 @@ from importlib import import_module
 from unittest import mock
 from unittest.mock import MagicMock
 
+import requests
 import testtools
 
 from soufi.testing import factory
@@ -92,3 +93,29 @@ class TestCase(testtools.TestCase):
         effects = list(mock_obj.side_effect)
         effects.append(extra_value)
         mock_obj.side_effect = effects
+
+    def patch_get_with_response(self, response_code, data=None, json=None):
+        """Patch `requests.get` with the provided values.
+
+        :param response_code: A requests.codes value, to mimic an HTTP status
+        :param data: A string-like object to mimic Response.content
+        :param json: A dict or list, to mimic what Response.json() would return
+        :return: The created MagicMock, to add side-effects, etc.
+        """
+        fake_response = mock.MagicMock()
+        fake_response.return_value.status_code = response_code
+        fake_response.return_value.content = data
+        fake_response.return_value.json.return_value = json
+        return self.patch(requests, 'get', fake_response)
+
+    def patch_head_with_response(self, response_code):
+        """Patch `requests.head` with the provided values.
+
+        HEAD requests have an empty message body, so no data is accepted.
+
+        :param response_code: A requests.codes value, to mimic an HTTP status
+        :return: The created MagicMock, to add side-effects, etc.
+        """
+        fake_response = mock.MagicMock()
+        fake_response.return_value.status_code = response_code
+        return self.patch(requests, 'head', fake_response)

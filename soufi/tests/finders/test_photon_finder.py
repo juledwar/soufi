@@ -89,8 +89,7 @@ class TestPhotonFinder(BasePhotonTest):
 
     def test__get_source_repos_top_level_failure_throws_exception(self):
         finder = self.make_finder()
-        get = self.patch(requests, 'get')
-        get.return_value = self.make_response(b'', requests.codes.not_found)
+        self.patch_get_with_response(requests.codes.not_found)
         self.assertRaises(exceptions.DownloadError, finder.get_source_repos)
 
     def test__get_source_repos_subdir_failure_omits_subdirs(self):
@@ -157,8 +156,7 @@ class TestPhotonFinder(BasePhotonTest):
 
     def test__get_binary_repos_top_level_failure_throws_exception(self):
         finder = self.make_finder()
-        get = self.patch(requests, 'get')
-        get.return_value = self.make_response(b'', requests.codes.not_found)
+        self.patch_get_with_response(requests.codes.not_found)
         self.assertRaises(exceptions.DownloadError, finder.get_binary_repos)
 
     def test__get_binary_repos_subdir_failure_omits_subdirs(self):

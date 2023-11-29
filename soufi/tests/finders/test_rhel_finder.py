@@ -1,5 +1,6 @@
 # Copyright (c) 2021 Cisco Systems, Inc. and its affiliates
 # All rights reserved.
+
 from testtools.matchers import SameMembers
 
 from soufi.finder import SourceType
