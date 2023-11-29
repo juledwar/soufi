@@ -1,8 +1,6 @@
 # Copyright (c) 2021 Cisco Systems, Inc. and its affiliates
 # All rights reserved.
 
-from unittest import mock
-
 import requests
 import testtools
 
@@ -20,24 +18,14 @@ class TestJavaFinder(base.TestCase):
             version = self.factory.make_string('version')
         return java.JavaFinder(name, version, SourceType.java)
 
-    def make_response(self, data, code):
-        fake_response = mock.MagicMock()
-        fake_response.json.return_value = data
-        fake_response.status_code = code
-        return fake_response
-
     def test_get_source_url(self):
         finder = self.make_finder()
         group = self.factory.make_string()
         url = self.factory.make_url()
         data = dict(response=dict(docs=[dict(g=group)]))
 
-        get = self.patch(requests, 'get')
-        head = self.patch(requests, 'head')
-        get.return_value = self.make_response(data, requests.codes.ok)
-        head.return_value = self.make_response(
-            mock.MagicMock(), requests.codes.ok
-        )
+        get = self.patch_get_with_response(requests.codes.ok, json=data)
+        head = self.patch_head_with_response(requests.codes.ok)
         head.return_value.url = url
         found_url = finder.get_source_url()
         self.assertEqual(found_url, url)
@@ -59,8 +47,7 @@ class TestJavaFinder(base.TestCase):
         )
 
     def test_get_source_info_raises_when_get_response_fails(self):
-        get = self.patch(requests, 'get')
-        get.return_value = self.make_response([], requests.codes.bad)
+        self.patch_get_with_response(requests.codes.bad)
         finder = self.make_finder()
         with testtools.ExpectedException(exceptions.SourceNotFound):
             finder.get_source_url()
@@ -68,10 +55,8 @@ class TestJavaFinder(base.TestCase):
     def test_get_source_info_raises_when_head_response_fails(self):
         group = self.factory.make_string()
         data = dict(response=dict(docs=[dict(g=group)]))
-        get = self.patch(requests, 'get')
-        get.return_value = self.make_response(data, requests.codes.ok)
-        head = self.patch(requests, 'head')
-        head.return_value = self.make_response([], requests.codes.not_found)
+        self.patch_get_with_response(requests.codes.ok, json=data)
+        self.patch_head_with_response(requests.codes.not_found)
         finder = self.make_finder()
         with testtools.ExpectedException(exceptions.SourceNotFound):
             finder.get_source_url()
@@ -79,8 +64,7 @@ class TestJavaFinder(base.TestCase):
     def test_get_source_info_raises_when_head_response_times_out(self):
         group = self.factory.make_string()
         data = dict(response=dict(docs=[dict(g=group)]))
-        get = self.patch(requests, 'get')
-        get.return_value = self.make_response(data, requests.codes.ok)
+        self.patch_get_with_response(requests.codes.ok, json=data)
         head = self.patch(requests, 'head')
         head.side_effect = requests.exceptions.Timeout
         finder = self.make_finder()
