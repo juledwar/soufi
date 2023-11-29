@@ -1,7 +1,6 @@
 # Copyright (c) 2021 Cisco Systems, Inc. and its affiliates
 # All rights reserved.
 
-from unittest import mock
 
 import requests
 import testtools
@@ -20,19 +19,12 @@ class TestNPMFinder(base.TestCase):
             version = self.factory.make_string('version')
         return npm.NPMFinder(name, version, SourceType.npm)
 
-    def make_response(self, data, code):
-        fake_response = mock.MagicMock()
-        fake_response.json.return_value = data
-        fake_response.status_code = code
-        return fake_response
-
     def test_get_source_url(self):
         finder = self.make_finder()
         url = self.factory.make_url()
         data = dict(dist=dict(tarball=url))
 
-        get = self.patch(requests, 'get')
-        get.return_value = self.make_response(data, requests.codes.ok)
+        get = self.patch_get_with_response(requests.codes.ok, json=data)
         found_url = finder.get_source_url()
         self.assertEqual(found_url, url)
         get.assert_called_once_with(
@@ -41,8 +33,7 @@ class TestNPMFinder(base.TestCase):
         )
 
     def test_get_source_info_raises_when_response_fails(self):
-        get = self.patch(requests, 'get')
-        get.return_value = self.make_response([], requests.codes.not_found)
+        self.patch_get_with_response(requests.codes.not_found)
         finder = self.make_finder()
         with testtools.ExpectedException(exceptions.SourceNotFound):
             finder.get_source_url()

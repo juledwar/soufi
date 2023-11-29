@@ -60,11 +60,6 @@ class BaseYumTest(base.TestCase):
             kwargs['binary_repos'] = []
         return YumFinderImpl(name, version, SourceType.os, **kwargs)
 
-    def make_response(self, data, code):
-        fake_response = mock.MagicMock()
-        fake_response.content = data
-        fake_response.status_code = code
-        return fake_response
 
     def make_package(self, n=None, e=None, v=None, r=None, a=None, epoch=None):
         # `epoch` is `name` or `ver`, to denote where to inject it
@@ -326,15 +321,13 @@ class TestYumFinderClassHelpers(BaseYumTest):
 
     def test__test_url_true(self):
         url = self.factory.make_url()
-        fake_req = self.patch(requests, 'head')
-        fake_req.return_value = self.make_response('', requests.codes.ok)
+        self.patch_head_with_response(requests.codes.ok)
         finder = self.make_finder()
         self.assertTrue(finder.test_url(url))
 
     def test__test_url_false(self):
         url = self.factory.make_url()
-        fake_req = self.patch(requests, 'head')
-        fake_req.return_value = self.make_response('', requests.codes.teapot)
+        self.patch_head_with_response(requests.codes.teapot)
         finder = self.make_finder()
         self.assertFalse(finder.test_url(url))
 

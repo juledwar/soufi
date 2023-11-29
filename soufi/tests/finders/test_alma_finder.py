@@ -1,7 +1,6 @@
 # Copyright (c) 2023 Cisco Systems, Inc. and its affiliates
 # All rights reserved.
 
-from unittest import mock
 
 import requests
 
@@ -21,12 +20,6 @@ class BaseAlmaTest(base.TestCase):
         if 'binary_repos' not in kwargs:
             kwargs['binary_repos'] = ['']
         return alma.AlmaFinder(name, version, SourceType.os, **kwargs)
-
-    def make_response(self, data, code):
-        fake_response = mock.MagicMock()
-        fake_response.content = data
-        fake_response.status_code = code
-        return fake_response
 
     def make_href(self, text):
         return f'<a href="{text}">{text}</a>'
@@ -49,8 +42,7 @@ class TestAlmaFinder(BaseAlmaTest):
         finder = self.make_finder()
         top_repos = ('1.0.123', '2.1.3456', 'bogus', '3.7.89-beta', '3')
         top_data = self.make_top_page_content(top_repos)
-        get = self.patch(requests, 'get')
-        get.return_value = self.make_response(top_data, requests.codes.ok)
+        get = self.patch_get_with_response(requests.codes.ok, top_data)
         result = list(finder._get_dirs())
         # Ensure that only the items we're interested in come back
         self.assertEqual(['2.1.3456', '1.0.123'], result)

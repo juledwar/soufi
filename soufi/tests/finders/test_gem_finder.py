@@ -1,7 +1,6 @@
 # Copyright (c) 2021 Cisco Systems, Inc. and its affiliates
 # All rights reserved.
 
-from unittest import mock
 
 import requests
 import testtools
@@ -20,24 +19,17 @@ class TestGemFinder(base.TestCase):
             version = self.factory.make_string('version')
         return gem.GemFinder(name, version, SourceType.gem)
 
-    def make_response(self, code):
-        fake_response = mock.MagicMock()
-        fake_response.status_code = code
-        return fake_response
-
     def test_get_source_url(self):
         finder = self.make_finder()
         url = f'{gem.GEM_DOWNLOADS}{finder.name}-{finder.version}.gem'
 
-        head = self.patch(requests, 'head')
-        head.return_value = self.make_response(requests.codes.ok)
+        head = self.patch_head_with_response(requests.codes.ok)
         found_url = finder.get_source_url()
         self.assertEqual(found_url, url)
         head.assert_called_once_with(url, timeout=30)
 
     def test_get_source_info_raises_when_response_fails(self):
-        head = self.patch(requests, 'head')
-        head.return_value = self.make_response(requests.codes.not_found)
+        self.patch_head_with_response(requests.codes.not_found)
         finder = self.make_finder()
         with testtools.ExpectedException(exceptions.SourceNotFound):
             finder.get_source_url()

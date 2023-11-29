@@ -26,12 +26,6 @@ class TestDebianFinder(base.TestCase):
             version = self.factory.make_string('version')
         return debian.DebianFinder(name, version, SourceType.os)
 
-    def make_response(self, data, code):
-        fake_response = mock.MagicMock()
-        fake_response.json.return_value = data
-        fake_response.status_code = code
-        return fake_response
-
     def make_source_info(self, name=None, version=None):
         if name is None:
             name = self.factory.make_string()
@@ -60,15 +54,13 @@ class TestDebianFinder(base.TestCase):
                 },
             ]
         )
-        get = self.patch(requests, 'get')
-        get.return_value = self.make_response(data, requests.codes.ok)
+        self.patch_get_with_response(requests.codes.ok, json=data)
         source_info = df.get_source_info()
         expected = dict(name=source_name, version=source_version)
         self.assertDictEqual(expected, source_info)
 
     def test_get_source_info_raises_when_response_fails(self):
-        get = self.patch(requests, 'get')
-        get.return_value = self.make_response([], requests.codes.not_found)
+        self.patch_get_with_response(requests.codes.not_found)
         df = self.make_finder()
         with testtools.ExpectedException(exceptions.SourceNotFound):
             df.get_source_info()
@@ -85,17 +77,15 @@ class TestDebianFinder(base.TestCase):
                 },
             ]
         )
-        get = self.patch(requests, 'get')
-        get.return_value = self.make_response(data, requests.codes.ok)
+        self.patch_get_with_response(requests.codes.ok, json=data)
         with testtools.ExpectedException(exceptions.SourceNotFound):
             df.get_source_info()
 
     def test_get_hashes(self):
         df = self.make_finder()
-        hashes = [self.factory.make_digest for _ in range(4)]
+        hashes = [self.factory.make_digest() for _ in range(4)]
         data = dict(result=[{'hash': hash} for hash in hashes])
-        get = self.patch(requests, 'get')
-        get.return_value = self.make_response(data, requests.codes.ok)
+        get = self.patch_get_with_response(requests.codes.ok, json=data)
         source_info = self.make_source_info()
         self.assertEqual(hashes, df.get_hashes(source_info))
         get.assert_called_once_with(
@@ -105,8 +95,7 @@ class TestDebianFinder(base.TestCase):
         )
 
     def test_get_hashes_raises_for_requests_error(self):
-        get = self.patch(requests, 'get')
-        get.return_value = self.make_response([], requests.codes.bad_request)
+        self.patch_get_with_response(requests.codes.bad_request)
         df = self.make_finder()
         source_info = self.make_source_info()
         with testtools.ExpectedException(exceptions.SourceNotFound):
@@ -115,9 +104,7 @@ class TestDebianFinder(base.TestCase):
     def test_get_hashes_raises_for_response_error(self):
         df = self.make_finder()
         source_info = self.make_source_info()
-        self.patch(requests, 'get').return_value = self.make_response(
-            [], requests.codes.ok
-        )
+        self.patch_get_with_response(requests.codes.ok, json=[])
         with testtools.ExpectedException(exceptions.SourceNotFound):
             df.get_hashes(source_info)
 
@@ -128,8 +115,7 @@ class TestDebianFinder(base.TestCase):
         data = dict(
             result=[dict(name=name), dict(name=self.factory.make_string())]
         )
-        get = self.patch(requests, 'get')
-        get.return_value = self.make_response(data, requests.codes.ok)
+        get = self.patch_get_with_response(requests.codes.ok, json=data)
         expected = [
             (name, f"{debian.SNAPSHOT_API}file/{hash}") for hash in hashes
         ]
@@ -145,9 +131,7 @@ class TestDebianFinder(base.TestCase):
 
     def test_get_urls_raises_for_requests_error(self):
         df = self.make_finder()
-        self.patch(requests, 'get').return_value = self.make_response(
-            [], requests.codes.bad_request
-        )
+        self.patch_get_with_response(requests.codes.bad_request)
         with testtools.ExpectedException(exceptions.DownloadError):
             df.get_urls(['foo'])
 
