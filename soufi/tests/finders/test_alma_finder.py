@@ -4,7 +4,7 @@
 import requests
 
 from soufi.finder import SourceType
-from soufi.finders import alma, yum
+from soufi.finders import almalinux, yum
 from soufi.testing import base
 
 
@@ -18,7 +18,9 @@ class BaseAlmaTest(base.TestCase):
             kwargs['source_repos'] = ['']
         if 'binary_repos' not in kwargs:
             kwargs['binary_repos'] = ['']
-        return alma.AlmaFinder(name, version, SourceType.os, **kwargs)
+        return almalinux.AlmaLinuxFinder(
+            name, version, SourceType.os, **kwargs
+        )
 
     def make_href(self, text):
         return f'<a href="{text}">{text}</a>'
@@ -45,7 +47,7 @@ class TestAlmaFinder(BaseAlmaTest):
         result = list(finder._get_dirs())
         # Ensure that only the items we're interested in come back
         self.assertEqual(['2.1.3456', '1.0.123'], result)
-        get.assert_called_once_with(alma.VAULT, timeout=30)
+        get.assert_called_once_with(almalinux.VAULT, timeout=30)
 
     def test__get_source_repos(self):
         finder = self.make_finder()
@@ -56,9 +58,9 @@ class TestAlmaFinder(BaseAlmaTest):
         test_url.return_value = True
         result = list(finder.get_source_repos())
         expected = [
-            f"{alma.VAULT}/{dir}/{subdir}/Source/"
+            f"{almalinux.VAULT}/{dir}/{subdir}/Source/"
             for dir in dirs
-            for subdir in alma.DEFAULT_SEARCH
+            for subdir in almalinux.DEFAULT_SEARCH
         ]
         self.assertEqual(expected, result)
 
@@ -71,8 +73,8 @@ class TestAlmaFinder(BaseAlmaTest):
         test_url.return_value = True
         result = list(finder.get_binary_repos())
         expected = [
-            f"{alma.VAULT}/{dir}/{subdir}/x86_64/os/"
+            f"{almalinux.VAULT}/{dir}/{subdir}/x86_64/os/"
             for dir in dirs
-            for subdir in alma.DEFAULT_SEARCH
+            for subdir in almalinux.DEFAULT_SEARCH
         ]
         self.assertEqual(expected, result)

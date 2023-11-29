@@ -9,7 +9,7 @@ import soufi.finders.yum as yum_finder
 from soufi import finder
 
 VAULT = "https://repo.almalinux.org/vault"
-# Alma does their very best to be a faithful CentOS clone.  Up to and
+# AlmaLinux does their very best to be a faithful CentOS clone.  Up to and
 # including this little gem.  See the CentosFinder for an explanation.
 CURRENT = "https://repo.almalinux.org/almalinux"
 # Rather than aimlessly poke around their CDN, use this hopefully-sensible
@@ -17,13 +17,13 @@ CURRENT = "https://repo.almalinux.org/almalinux"
 DEFAULT_SEARCH = ('BaseOS', 'AppStream', 'extras', 'cloud', 'devel')
 
 
-class AlmaFinder(yum_finder.YumFinder):
-    """Find Alma Linux source files.
+class AlmaLinuxFinder(yum_finder.YumFinder):
+    """Find AlmaLinux source files.
 
     By default, Iterates over the index at https://repo.almalinux.org/vault/
     """
 
-    distro = finder.Distro.alma.value
+    distro = finder.Distro.almalinux.value
 
     def _get_dirs(self):
         """Get all the possible Vault dirs that could match."""
@@ -31,7 +31,7 @@ class AlmaFinder(yum_finder.YumFinder):
         tree = html.fromstring(content)
         # Ignore beta releases; we may want to make this a switchable behavior
         retval = tree.xpath("//a/text()[not(contains(.,'-beta'))]")
-        # Alma Vault is fond of symlinking the current point release to a
+        # AlmaLinux Vault is fond of symlinking the current point release to a
         # directory with just the major version number, e.g., `6.10/`->`6/`.
         # This means that such directories are inherently unstable and their
         # contents are subject to change without notice, so we'll ignore

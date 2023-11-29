@@ -40,7 +40,7 @@ class Distro(enum.Enum):
     centos = "centos"
     alpine = "alpine"
     photon = "photon"
-    alma = "alma"
+    almalinux = "almalinux"
 
 
 class DiscoveredSource(metaclass=abc.ABCMeta):
