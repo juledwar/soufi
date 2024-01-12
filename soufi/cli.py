@@ -7,12 +7,11 @@ import os
 import shutil
 import sys
 
-import pylru
-
 from soufi import exceptions, finder
 
 try:
     import click
+    import pylru
 except ImportError:
     sys.exit("CLI support not installed; please install soufi[cli]")
 
