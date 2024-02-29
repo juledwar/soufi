@@ -6,6 +6,7 @@ import functools
 import os
 import shutil
 import sys
+import warnings
 
 from soufi import exceptions, finder
 
@@ -15,6 +16,7 @@ try:
 except ImportError:
     sys.exit("CLI support not installed; please install soufi[cli]")
 
+warnings.formatwarning = lambda msg, *x, **y: f'WARNING: {msg}\n'
 
 # Configure a small-ish in-memory LRU cache to speed up operations
 LRU_CACHE = pylru.lrucache(size=512)
