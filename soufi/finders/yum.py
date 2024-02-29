@@ -18,8 +18,6 @@ from dogpile.cache.backends.null import NullBackend
 
 from soufi import exceptions, finder
 
-warnings.formatwarning = lambda msg, *x, **y: f"WARNING: {msg}\n"
-
 
 class YumFinder(finder.SourceFinder, metaclass=abc.ABCMeta):
     """An abstract base class for making Yum-based finders.

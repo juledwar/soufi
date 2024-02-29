@@ -15,8 +15,6 @@ from typing import Iterable, Union
 
 from soufi import exceptions, finder
 
-warnings.formatwarning = lambda msg, *x, **y: f'WARNING: {msg}\n'
-
 # Shell snippet that will source an APKBUILD and spit out the vars that we
 # need. CARCH is set to work around a bug in 3.12.0 scripts. CTARGET_ARCH
 # is needed for more complex scripts like `community/go`.
