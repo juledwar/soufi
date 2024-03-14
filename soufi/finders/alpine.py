@@ -228,12 +228,8 @@ class AlpineDiscoveredSource(finder.DiscoveredSource):
         """
         file_hash = hashlib.sha512()
         with open(filename, 'rb') as f:
-            # TODO(nic): this loop can be simplified with a walrus operator
-            #  if/when Python 3.7 support is dropped
-            chunk = f.read(0x10000)
-            while chunk:
+            while chunk := f.read(0x10000):
                 file_hash.update(chunk)
-                chunk = f.read(0x10000)
         if file_hash.hexdigest() == sha512sum:
             return True
         raise exceptions.DownloadError(
