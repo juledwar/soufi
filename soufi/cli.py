@@ -16,7 +16,7 @@ try:
 except ImportError:
     sys.exit("CLI support not installed; please install soufi[cli]")
 
-warnings.formatwarning = lambda msg, *x, **y: f'WARNING: {msg}\n'
+warnings.formatwarning = lambda msg, *x, **y: f"WARNING: {msg}\n"
 
 # Configure a small-ish in-memory LRU cache to speed up operations
 LRU_CACHE = pylru.lrucache(size=512)
@@ -37,7 +37,7 @@ class Finder:
             name,
             version,
             finder.SourceType.os,
-            cache_backend='dogpile.cache.memory',
+            cache_backend="dogpile.cache.memory",
             cache_args=dict(cache_dict=LRU_CACHE),
             timeout=timeout,
         )
@@ -80,7 +80,7 @@ class Finder:
         binary_repos=None,
         timeout=None,
     ):
-        optimal = 'optimal' in repos
+        optimal = "optimal" in repos
         centos_finder = finder.factory(
             "centos",
             name=name,
@@ -90,7 +90,7 @@ class Finder:
             optimal_repos=optimal,
             source_repos=source_repos,
             binary_repos=binary_repos,
-            cache_backend='dogpile.cache.memory',
+            cache_backend="dogpile.cache.memory",
             cache_args=dict(cache_dict=LRU_CACHE),
             timeout=timeout,
         )
@@ -104,7 +104,7 @@ class Finder:
             version=version,
             s_type=finder.SourceType.os,
             aports_dir=aports_dir,
-            cache_backend='dogpile.cache.memory',
+            cache_backend="dogpile.cache.memory",
             cache_args=dict(cache_dict=LRU_CACHE),
             timeout=timeout,
         )
@@ -155,7 +155,7 @@ class Finder:
             s_type=finder.SourceType.os,
             source_repos=source_repos,
             binary_repos=binary_repos,
-            cache_backend='dogpile.cache.memory',
+            cache_backend="dogpile.cache.memory",
             cache_args=dict(cache_dict=LRU_CACHE),
             timeout=timeout,
         )
@@ -172,16 +172,27 @@ class Finder:
             s_type=finder.SourceType.os,
             source_repos=source_repos,
             binary_repos=binary_repos,
-            cache_backend='dogpile.cache.memory',
+            cache_backend="dogpile.cache.memory",
             cache_args=dict(cache_dict=LRU_CACHE),
             timeout=timeout,
         )
         return cls.find(rhel_finder)
 
+    @classmethod
+    def crate(cls, name, version, timeout=None):
+        crate_finder = finder.factory(
+            "crate",
+            name=name,
+            version=version,
+            s_type=finder.SourceType.crate,
+            timeout=timeout,
+        )
+        return cls.find(crate_finder)
+
 
 def make_archive_from_discovery_source(disc_src, fname):
     try:
-        with disc_src.make_archive() as in_fd, open(fname, 'wb') as out_fd:
+        with disc_src.make_archive() as in_fd, open(fname, "wb") as out_fd:
             # copyfileobj copies in chunks, so as not to exhaust memory.
             shutil.copyfileobj(in_fd, out_fd)
     except exceptions.DownloadError as e:
@@ -293,23 +304,23 @@ def main(
     except AttributeError:
         click.echo(f"{distro} not available")
         click.get_current_context().exit(255)
-    if distro == 'alpine' and aports is None:
+    if distro == "alpine" and aports is None:
         click.echo("Must provide --aports for Alpine")
         click.get_current_context().exit(255)
     try:
-        if distro == 'python':
+        if distro == "python":
             disc_source = func(pyindex=pyindex)
-        elif distro == 'alpine':
+        elif distro == "alpine":
             disc_source = func(aports_dir=aports)
-        elif distro == 'centos':
+        elif distro == "centos":
             disc_source = func(
                 repos=repo, source_repos=source_repo, binary_repos=binary_repo
             )
-        elif distro in ('photon', 'rhel'):
+        elif distro in ("photon", "rhel"):
             disc_source = func(
                 source_repos=source_repo, binary_repos=binary_repo
             )
-        elif distro == 'go':
+        elif distro == "go":
             disc_source = func(goproxy=goproxy)
         else:
             disc_source = func()
@@ -320,7 +331,7 @@ def main(
     if auto_output is not False or output is not None:
         fname = output
         if auto_output:
-            name = name.replace(os.sep, '.')
+            name = name.replace(os.sep, ".")
             fname = f"{name}-{version}.{distro}{disc_source.archive_extension}"
         make_archive_from_discovery_source(disc_source, fname)
 
