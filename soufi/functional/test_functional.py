@@ -125,8 +125,8 @@ class FunctionalAlpineTests(FunctionalFinderTests):
     def test_find_package(self):
         cmd = 'git clone --depth 1 --branch v3.13.5 git://git.alpinelinux.org/aports'.split()  # noqa: E501
         with tempfile.TemporaryDirectory('.aports') as aports_dir:
-            output = run_cmd(
-                cmd + [aports_dir], capture_output=True  # noqa: S603
+            output = run_cmd(  # noqa: S603
+                cmd + [aports_dir], capture_output=True
             )
             msg = "\n".join(
                 [output.stderr.decode('utf-8'), output.stdout.decode('utf-8')]
@@ -279,4 +279,19 @@ class FunctionalAlmaTests(FunctionalFinderTests):
         )
         url = 'https://repo.almalinux.org/vault/9.2/BaseOS/Source/Packages/glibc-2.34-60.el9_2.7.src.rpm'  # noqa: E501
         result = almalinux.find()
+        self.assertEqual([url], result.urls)
+
+
+class FunctionalCrateTests(FunctionalFinderTests):
+    def test_find_package(self):
+        crate = finder.factory(
+            'crate',
+            name='cargo',
+            version='0.82.0',
+            s_type=SourceType.crate,
+            cache_backend='dogpile.cache.memory_pickle',
+            cache_args=dict(cache_dict=FUNCTEST_CACHE),
+        )
+        url = 'https://static.crates.io/crates/cargo/cargo-0.82.0.crate'
+        result = crate.find()
         self.assertEqual([url], result.urls)

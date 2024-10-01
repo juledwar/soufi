@@ -12,6 +12,7 @@ authors = [
 ]
 maintainers = [
     {name = "Julian Edwards", email = "juledwar@cisco.com"},
+    {name = "Nicolas Simonds", email = "nisimond@cisco.com"},
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -43,12 +44,10 @@ dependencies = [
 [project.optional-dependencies]
 test = [
     "build",
-    "black",
     "coverage[toml]",
     "fixtures",
     "ruff",
     "ipython",
-    "isort",
     "pdbpp",
     "stestr",
     "testscenarios",
@@ -58,7 +57,7 @@ test = [
 ]
 bootstrap = [
     "pip",
-    "pip-tools",
+    "uv",
     "hatch",
     "hatch-vcs",
     "virtualenv",
@@ -112,13 +111,12 @@ scripts.failing = ["py3-failing"]  # convenience is king
 scripts.test = ["python -m testtools.run {args}"]
 scripts.debug = ["python -m testtools.run discover {args}"]
 scripts.format = [
-    "black soufi",
-    "isort soufi",
+    "ruff format soufi",
+    "ruff check --select I --fix-only --show-fixes soufi",
 ]
 scripts.check = [
-    "black --check soufi",
-    "isort --check soufi",
-    "ruff soufi",
+    "ruff format --check soufi",
+    "ruff check soufi",
 ]
 # Special target to run all tests needed in CI.
 scripts.ci = [
@@ -135,34 +133,6 @@ scripts.functional = [
     "stestr --test-path ./soufi/functional run {args}",
     "stestr slowest",
 ]
-
-scripts.compile-requirements = [
-    "docker run -e HATCH_ENV_ACTIVE=1 --rm -v {root}:/soufi python:3.8-slim bash -c 'cd /soufi; apt update && apt install -y git && tools/compile-requirements'",
-]
-
-
-[tool.black]
-line-length = 79
-target_version = ['py38']
-skip-string-normalization = 1
-# Needed for the vim plugin
-string-normalization = 0
-exclude = '''
-(
-    /(
-          \.eggs
-        | \.git
-        | .tox
-        | .hatch
-        | \.venv
-        | dist
-        | build
-        | _build
-        | soufi-venv
-    )/
-    | soufi/_version.py
-)
-'''
 
 [tool.coverage.run]
 omit = [
@@ -182,9 +152,8 @@ use_parentheses = true
 
 [tool.ruff]
 cache-dir = "~/.cache/ruff"
-select = ["B", "C9", "D", "E", "F", "S", "W"]
 line-length = 79
-show-source = true
+output-format = "full"
 target-version = "py38"
 exclude = [
     ".git",
@@ -197,6 +166,10 @@ exclude = [
     "dist",
     "eggs",
 ]
+[tool.ruff.format]
+quote-style = 'preserve'
+[tool.ruff.lint]
+select = ["B", "C9", "D", "E", "F", "S", "W"]
 ignore = [
     "D10", # ignore missing docstrings (for now)
     "D202", # No blank lines allowed after function docstring (caused by Black)
@@ -209,5 +182,5 @@ ignore = [
     "E731", # make lambda expressions great again
     "B904", # Disable stuipidly picky error about raise ... from None
 ]
-[tool.ruff.mccabe]
+[tool.ruff.lint.mccabe]
 max-complexity = 13

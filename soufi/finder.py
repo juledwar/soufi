@@ -30,6 +30,7 @@ class SourceType(enum.Enum):
     java = "java"
     go = "go"
     nuget = "nuget"
+    crate = "crate"
 
 
 @enum.unique

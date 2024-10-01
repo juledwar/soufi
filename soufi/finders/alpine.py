@@ -114,8 +114,8 @@ class AlpineFinder(finder.SourceFinder):
         try:
             # This must run with a CWD of where the APKBUILD is located,
             # since it can use relative paths to source other files.
-            output = subprocess.run(
-                cmd,  # noqa: S603
+            output = subprocess.run(  # noqa: S603
+                cmd,
                 cwd=path.parent,
                 capture_output=True,
                 check=True,
