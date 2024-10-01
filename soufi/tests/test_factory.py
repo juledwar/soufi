@@ -26,17 +26,18 @@ class TestFinderFactory(base.TestCase):
 
     def test_supported_types(self):
         expected = [
-            'almalinux',
-            'alpine',
-            'centos',
-            'debian',
-            'gem',
-            'go',
-            'java',
-            'npm',
-            'photon',
-            'python',
-            'rhel',
-            'ubuntu',
+            "almalinux",
+            "alpine",
+            "centos",
+            "crate",
+            "debian",
+            "gem",
+            "go",
+            "java",
+            "npm",
+            "photon",
+            "python",
+            "rhel",
+            "ubuntu",
         ]
         self.assertListEqual(expected, factory.supported_types)
