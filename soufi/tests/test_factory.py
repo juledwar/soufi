@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2023 Cisco Systems, Inc. and its affiliates
+# Copyright (c) 2021-2024 Cisco Systems, Inc. and its affiliates
 # All rights reserved.
 
 from unittest.mock import MagicMock
@@ -36,6 +36,7 @@ class TestFinderFactory(base.TestCase):
             "java",
             "npm",
             "photon",
+            "phppecl",
             "python",
             "rhel",
             "ubuntu",

@@ -31,6 +31,7 @@ class SourceType(enum.Enum):
     go = "go"
     nuget = "nuget"
     crate = "crate"
+    phppecl = "phppecl"
 
 
 @enum.unique
