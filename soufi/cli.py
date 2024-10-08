@@ -190,6 +190,17 @@ class Finder:
         )
         return cls.find(crate_finder)
 
+    @classmethod
+    def phppecl(cls, name, version, timeout=None):
+        pecl_finder = finder.factory(
+            "phppecl",
+            name=name,
+            version=version,
+            s_type=finder.SourceType.phppecl,
+            timeout=timeout,
+        )
+        return cls.find(pecl_finder)
+
 
 def make_archive_from_discovery_source(disc_src, fname):
     try:
@@ -295,8 +306,8 @@ def main(
     archive is used instead.
 
     The sources currently supported are 'debian', 'ubuntu', 'rhel', 'centos',
-    'alpine', 'photon', 'java', 'go', 'python', and 'npm', one of which must be
-    specified as the DISTRO argument.
+    'alpine', 'photon', 'java', 'go', 'python', 'create', 'phppecl, and 'npm',
+    one of which must be specified as the DISTRO argument.
     """
     try:
         func = functools.partial(

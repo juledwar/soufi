@@ -19,13 +19,15 @@ Currently supported finders are:
  - Golang modules
  - Java JARs
  - Ruby Gems
+ - Rust Crates
+ - PHP PECL packages
 
 If you want to download Alpine packages, you must have `git` installed.
 
 
 Requirements
 ------------
-Soufi is currently tested on Python versions 3.8 through 3.11. It is
+Soufi is currently tested on Python versions 3.8 through 3.12. It is
 known not to work on 3.6.
 
 
@@ -114,5 +116,5 @@ for details on backend configuration.
 Copyright
 ---------
 
-Soufi is copyright (c) 2021-2023 Cisco Systems, Inc. and its affiliates
+Soufi is copyright (c) 2021-2024 Cisco Systems, Inc. and its affiliates
 All rights reserved.

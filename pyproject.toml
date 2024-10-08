@@ -96,7 +96,7 @@ features = ["test"]
 # Bootstrap or upgrade an existing virtualenv:
 scripts.install = [
     # Install exactly what's in the locked requirements and nothing else.
-    "pip install -U --no-deps -r requirements/requirements-test.txt",
+    "pip install -U --no-deps -r requirements/requirements-cli.txt",
 ]
 scripts.py3 = [
     "export PYTHON='coverage run --source soufi --parallel-mode'; stestr run {args}",
