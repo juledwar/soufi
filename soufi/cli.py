@@ -317,8 +317,9 @@ def main(
     archive is used instead.
 
     The sources currently supported are 'debian', 'ubuntu', 'rhel', 'centos',
-    'alpine', 'photon', 'java', 'go', 'python', 'create', 'phppecl', and 'npm',
-    one of which must be specified as the DISTRO argument.
+    'alpine', 'photon', 'java', 'go', 'python', 'create', 'phppecl',
+    'phpcomposer', and 'npm', one of which must be specified as the DISTRO
+    argument.
     """
     try:
         func = functools.partial(
