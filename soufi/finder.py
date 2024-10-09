@@ -32,6 +32,7 @@ class SourceType(enum.Enum):
     nuget = "nuget"
     crate = "crate"
     phppecl = "phppecl"
+    phpcomposer = "phpcomposer"
 
 
 @enum.unique

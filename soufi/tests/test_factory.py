@@ -36,6 +36,7 @@ class TestFinderFactory(base.TestCase):
             "java",
             "npm",
             "photon",
+            "phpcomposer",
             "phppecl",
             "python",
             "rhel",
