@@ -201,6 +201,17 @@ class Finder:
         )
         return cls.find(pecl_finder)
 
+    @classmethod
+    def phpcomposer(cls, name, version, timeout=None):
+        composer_finder = finder.factory(
+            "phpcomposer",
+            name=name,
+            version=version,
+            s_type=finder.SourceType.phpcomposer,
+            timeout=timeout,
+        )
+        return cls.find(composer_finder)
+
 
 def make_archive_from_discovery_source(disc_src, fname):
     try:

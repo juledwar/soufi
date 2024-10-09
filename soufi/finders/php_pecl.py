@@ -40,7 +40,7 @@ class PHPPECL(finder.SourceFinder):
 
 
 class PHPPECLDiscoveredSource(finder.DiscoveredSource):
-    """A discovered Rust Crate package."""
+    """A discovered PHP PECL package."""
 
     make_archive = finder.DiscoveredSource.remote_url_is_archive
     archive_extension = ".tgz"
