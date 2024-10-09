@@ -21,6 +21,7 @@ Currently supported finders are:
  - Ruby Gems
  - Rust Crates
  - PHP PECL packages
+ - PHP Composer packages
 
 If you want to download Alpine packages, you must have `git` installed.
 
