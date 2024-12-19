@@ -15,18 +15,16 @@ class RHELFinder(yum_finder.YumFinder):
 
     distro = finder.Distro.rhel.value
 
-    # UBI is kind of sprawling, and they are fairly idiosyncratic with where
-    # they like to put their packages, tree-wise.  Once you find the proper
-    # subtree, they are delightfully regular with the repo structure, however.
-    # Rather than aimlessly poke around their CDN, we'll use this
-    # hand-curated list of search paths.
+    # From: https://access.redhat.com/articles/4238681
     default_search_dirs = (
-        'ubi8/8/x86_64/baseos',
+        'ubi9/9/x86_64/base',
+        'ubi9/9/x86_64/appstream',
+        'ubi9/9/x86_64/codeready-builder',
+        'ubi8/8/x86_64/base',
         'ubi8/8/x86_64/appstream',
         'ubi8/8/x86_64/codeready-builder',
         'ubi/server/7/7Server/x86_64',
         'ubi/server/7/7Server/x86_64/extras',
-        'ubi/server/7/7Server/x86_64/devtools/1',
         'ubi/server/7/7Server/x86_64/optional',
         'ubi/server/7/7Server/x86_64/rhscl/1',
         'ubi/atomic/7/7Server/x86_64',
