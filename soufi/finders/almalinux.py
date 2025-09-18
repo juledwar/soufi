@@ -3,7 +3,7 @@
 
 import re
 
-from lxml import html
+from bs4 import BeautifulSoup
 
 import soufi.finders.yum as yum_finder
 from soufi import finder
@@ -25,21 +25,30 @@ class AlmaLinuxFinder(yum_finder.YumFinder):
 
     distro = finder.Distro.almalinux.value
 
-    def _get_dirs(self):
-        """Get all the possible Vault dirs that could match."""
-        content = self.get_url(VAULT).content
-        tree = html.fromstring(content)
-        # Ignore beta releases; we may want to make this a switchable behavior
-        retval = tree.xpath("//a/text()[not(contains(.,'-beta'))]")
+    def _get_vault_repo_versions(self):
+        response = self.get_url(VAULT)
+        soup = BeautifulSoup(response.text, "html.parser")
+        versions = []
         # AlmaLinux Vault is fond of symlinking the current point release to a
         # directory with just the major version number, e.g., `6.10/`->`6/`.
         # This means that such directories are inherently unstable and their
         # contents are subject to change without notice, so we'll ignore
         # them in favour of the "full" names.
-        dirs = [dir.rstrip('/') for dir in retval if re.match(r'\d+\.\d', dir)]
+        for link in soup.find_all("a", href=re.compile(r"^./\d+\.\d")):
+            version = link.get("href").rstrip("/")
+            if '-beta' in version:
+                # Ignore beta releases; we may want to make this a switchable
+                # behaviour.
+                continue
+            if re.match(r"^./\d+\.\d+", version):
+                versions.append(version[2:])
+        return sorted(versions, reverse=True)  # Sort to prioritize newer
 
-        # Walk the tree backwards, so that newer releases get searched first
-        return reversed(dirs)
+    def _get_dirs(self):
+        """Get all the possible Vault dirs that could match."""
+        versions = self._get_vault_repo_versions()
+        # Dir names are just the versions.
+        return versions
 
     def get_source_repos(self):
         """Determine which source search paths are valid.
