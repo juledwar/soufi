@@ -98,6 +98,29 @@ class Finder:
         return cls.find(centos_finder)
 
     @classmethod
+    def almalinux(
+        cls,
+        name,
+        version,
+        repos=None,
+        source_repos=None,
+        binary_repos=None,
+        timeout=None,
+    ):
+        alma_finder = finder.factory(
+            "almalinux",
+            name=name,
+            version=version,
+            s_type=finder.SourceType.os,
+            source_repos=source_repos,
+            binary_repos=binary_repos,
+            cache_backend="dogpile.cache.memory",
+            cache_args=dict(cache_dict=LRU_CACHE),
+            timeout=timeout,
+        )
+        return cls.find(alma_finder)
+
+    @classmethod
     def alpine(cls, name, version, aports_dir, timeout=None):
         alpine_finder = finder.factory(
             "alpine",
@@ -243,7 +266,7 @@ def make_archive_from_discovery_source(disc_src, fname):
     "--repo",
     default=(),
     multiple=True,
-    help="For CentOS, name of repo to use instead of defaults. "
+    help="For CentOS/Almalinux, name of repo to use instead of defaults. "
     "Use 'optimal' to use an extended optimal set. May be repeated.",
 )
 @click.option(

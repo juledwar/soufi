@@ -25,7 +25,7 @@ class TestGemFinder(base.TestCase):
         head = self.patch_head_with_response(requests.codes.ok)
         found_url = finder.get_source_url()
         self.assertEqual(found_url, url)
-        head.assert_called_once_with(url, timeout=30)
+        head.assert_called_once_with(url, timeout=30, allow_redirects=True)
 
     def test_get_source_info_raises_when_response_fails(self):
         self.patch_head_with_response(requests.codes.not_found)

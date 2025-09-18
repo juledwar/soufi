@@ -26,7 +26,7 @@ class BaseAlmaTest(base.TestCase):
         return f'<a href="{text}">{text}</a>'
 
     def make_top_page_content(self, versions):
-        links = [self.make_href(v) for v in versions]
+        links = [self.make_href(f"./{v}") for v in versions]
         return "\n".join(links)
 
 
@@ -43,7 +43,9 @@ class TestAlmaFinder(BaseAlmaTest):
         finder = self.make_finder()
         top_repos = ('1.0.123', '2.1.3456', 'bogus', '3.7.89-beta', '3')
         top_data = self.make_top_page_content(top_repos)
-        get = self.patch_get_with_response(requests.codes.ok, top_data)
+        get = self.patch_get_with_response(
+            requests.codes.ok, top_data, as_text=True
+        )
         result = list(finder._get_dirs())
         # Ensure that only the items we're interested in come back
         self.assertEqual(['2.1.3456', '1.0.123'], result)

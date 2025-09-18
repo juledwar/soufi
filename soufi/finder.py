@@ -246,7 +246,9 @@ class SourceFinder(metaclass=abc.ABCMeta):
 
     def _head_url(self, url, **kwargs):
         def inner():
-            response = requests.head(url, timeout=self.timeout, **kwargs)
+            response = requests.head(
+                url, timeout=self.timeout, allow_redirects=True, **kwargs
+            )
             if response.status_code == requests.codes.not_allowed:
                 # HEAD not available; we can try to download it instead and
                 # abort before starting the stream.

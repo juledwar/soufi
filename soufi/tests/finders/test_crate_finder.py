@@ -28,7 +28,7 @@ class TestCrateFinder(base.TestCase):
         index_dl = self.factory.make_url()
         get_index_dl.return_value = index_dl
 
-        get = self.patch_head_with_response(requests.codes.ok)
+        head = self.patch_head_with_response(requests.codes.ok)
         found_url = finder.get_source_url()
         expected_url = (
             f"{index_dl}/{finder.name}/{finder.name}-{finder.version}.crate"
@@ -37,8 +37,9 @@ class TestCrateFinder(base.TestCase):
         call = mock.call(
             expected_url,
             timeout=30,
+            allow_redirects=True,
         )
-        self.assertIn(call, get.call_args_list)
+        self.assertIn(call, head.call_args_list)
 
     def test_get_source_url_source_not_found(self):
         finder = self.make_finder()

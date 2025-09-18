@@ -44,7 +44,8 @@ class JavaFinder(finder.SourceFinder):
             f'{self.name}-{self.version}-sources.jar'
         )
         found = self.test_url(
-            MAVEN_REPO_URL, params=params, allow_redirects=True
+            MAVEN_REPO_URL,
+            params=params,
         )
         if not found:
             raise exceptions.SourceNotFound
