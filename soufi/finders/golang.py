@@ -37,6 +37,37 @@ class GolangFinder(finder.SourceFinder):
             )
         raise exceptions.SourceNotFound()
 
+    def _get_release_history(self):
+        url = f"{self.goproxy}{self.name.lower()}/@v/list"
+        try:
+            response = self.get_url(url)
+        except exceptions.DownloadError:
+            raise exceptions.SourceNotFound
+
+        history = []
+        for line in response.text.splitlines():
+            version = line.strip()
+            if not version:
+                continue
+            history.append({'version': version, 'published_at': None})
+
+        if history == []:
+            raise exceptions.SourceNotFound
+        latest_version = self._get_latest_version()
+        if latest_version and history[0]['version'] == latest_version:
+            history.reverse()
+        return history
+
+    def _get_latest_version(self):
+        url = f"{self.goproxy}{self.name.lower()}/@latest"
+        try:
+            data = self.get_url(url).json()
+        except exceptions.DownloadError:
+            return None
+        if not isinstance(data, dict):
+            return None
+        return data.get('Version') or data.get('version')
+
 
 class GolangDiscoveredSource(finder.DiscoveredSource):
     """A discovered Golang source module."""

@@ -5,6 +5,7 @@
 from soufi import exceptions, finder
 
 DEFAULT_INDEX = "https://index.crates.io/"
+CRATES_API = "https://crates.io/api/v1/crates/"
 
 
 class CrateFinder(finder.SourceFinder):
@@ -27,6 +28,38 @@ class CrateFinder(finder.SourceFinder):
     def _find(self):
         source_url = self.get_source_url()
         return CrateDiscoveredSource([source_url], timeout=self.timeout)
+
+    def _get_release_history(self):
+        url = f"{CRATES_API}{self.name}/versions"
+        headers = {'User-Agent': 'soufi'}
+        try:
+            data = self.get_url(url, headers=headers).json()
+        except exceptions.DownloadError:
+            raise exceptions.SourceNotFound
+
+        history = []
+        for item in data.get('versions', []):
+            if item.get('yanked'):
+                continue
+            version = item.get('num')
+            if not version:
+                continue
+            history.append(
+                {
+                    'version': version,
+                    'published_at': item.get('created_at'),
+                }
+            )
+        if history == []:
+            raise exceptions.SourceNotFound
+
+        history.sort(
+            key=lambda h: (
+                h['published_at'] is None,
+                h['published_at'] or "",
+            )
+        )
+        return history
 
     def get_source_url(self):
         """Examine the index to find the source URL for the package.

@@ -78,6 +78,64 @@ class TestCrateFinder(base.TestCase):
         self.assertIsInstance(disc_source, crate.CrateDiscoveredSource)
         self.assertEqual([url], disc_source.urls)
 
+    def test_get_release_history(self):
+        finder = self.make_finder(name=self.factory.make_string())
+        data = {
+            'versions': [
+                {'num': '2.0.0', 'created_at': '2024-02-01T00:00:00.000Z'},
+                {'num': '1.0.0', 'created_at': '2024-01-01T00:00:00.000Z'},
+            ]
+        }
+        get = self.patch_get_with_response(requests.codes.ok, json=data)
+
+        history = finder.get_release_history()
+        self.assertEqual(
+            ['1.0.0', '2.0.0'], [item['version'] for item in history]
+        )
+        get.assert_called_with(
+            f"{crate.CRATES_API}{finder.name}/versions",
+            headers={'User-Agent': 'soufi'},
+            timeout=finder.timeout,
+        )
+
+    def test_get_release_history_raises_when_request_fails(self):
+        finder = self.make_finder(name=self.factory.make_string())
+        self.patch_get_with_response(requests.codes.bad_request)
+
+        self.assertRaises(
+            exceptions.SourceNotFound,
+            finder.get_release_history,
+        )
+
+    def test_get_release_history_skips_yanked_and_empty_versions(self):
+        finder = self.make_finder(name=self.factory.make_string())
+        data = {
+            'versions': [
+                {'num': '3.0.0', 'yanked': True},
+                {'created_at': '2024-03-01T00:00:00.000Z'},
+                {'num': '2.0.0', 'created_at': '2024-02-01T00:00:00.000Z'},
+            ]
+        }
+        self.patch_get_with_response(requests.codes.ok, json=data)
+
+        history = finder.get_release_history()
+        self.assertEqual(['2.0.0'], [item['version'] for item in history])
+
+    def test_get_release_history_raises_when_all_versions_filtered(self):
+        finder = self.make_finder(name=self.factory.make_string())
+        data = {
+            'versions': [
+                {'num': '3.0.0', 'yanked': True},
+                {'created_at': '2024-03-01T00:00:00.000Z'},
+            ]
+        }
+        self.patch_get_with_response(requests.codes.ok, json=data)
+
+        self.assertRaises(
+            exceptions.SourceNotFound,
+            finder.get_release_history,
+        )
+
 
 class TestCrateDiscoveredSource(base.TestCase):
     def make_discovered_source(self, url=None):

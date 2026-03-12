@@ -10,7 +10,15 @@ import pkgutil
 import tarfile
 import tempfile
 from inspect import isclass
-from typing import Any, BinaryIO, ContextManager, Iterable, Mapping, Union
+from typing import (
+    Any,
+    BinaryIO,
+    Callable,
+    ContextManager,
+    Iterable,
+    Mapping,
+    Union,
+)
 from urllib.parse import urlencode
 
 import requests
@@ -194,12 +202,14 @@ class SourceFinder(metaclass=abc.ABCMeta):
         s_type: SourceType = None,
         cache_backend: str = 'dogpile.cache.null',
         cache_args: Mapping[str, Any] = None,
+        cache_ttl: int = None,
         timeout: int = DEFAULT_TIMEOUT,
     ):
         self.name = name
         self.version = version
         self.s_type = s_type
         self.timeout = timeout
+        self.cache_ttl = cache_ttl
 
         self._cache = make_region(
             key_mangler=lambda key: 'soufi/' + key
@@ -230,6 +240,36 @@ class SourceFinder(metaclass=abc.ABCMeta):
                 "All of name, version and s_type must have a value"
             )
         return self._find()
+
+    def get_release_history(self, name: str = None, s_type: SourceType = None):
+        """Return release history for a package type/name.
+
+        :param name: Name of the source package
+        :param s_type: A SourceType indicating the type of package
+        :return: Iterable of dicts with at least `version`.
+        """
+        if name is not None:
+            self.name = name
+        if s_type is not None:
+            self.s_type = s_type
+        if None in (self.name, self.s_type):
+            raise ValueError("Both of name and s_type must have a value")
+        return self._get_release_history()
+
+    def _get_release_history(self):
+        raise NotImplementedError
+
+    def _cache_get_or_create(
+        self,
+        key: str,
+        creator: Callable[[], Any],
+        expiration_time: int = None,
+    ):
+        ttl = self.cache_ttl if expiration_time is None else expiration_time
+        kwargs = {}
+        if ttl is not None:
+            kwargs['expiration_time'] = ttl
+        return self._cache.get_or_create(key, creator, **kwargs)
 
     # Use this wrapper for doing HTTP HEAD requests, as it will swallow
     # Timeout exceptions, but cache other lookups.
@@ -264,7 +304,7 @@ class SourceFinder(metaclass=abc.ABCMeta):
         key = url
         if 'params' in kwargs:
             key += f"?{urlencode(kwargs['params'], doseq=True)}"
-        return self._cache.get_or_create(f"head-{key}", inner)
+        return self._cache_get_or_create(f"head-{key}", inner)
 
     def get_url(self, url, **kwargs):
         """Fetch the contents of the given URL and cache/return the result.
@@ -282,7 +322,7 @@ class SourceFinder(metaclass=abc.ABCMeta):
         key = url
         if 'params' in kwargs:
             key += f"?{urlencode(kwargs['params'], doseq=True)}"
-        return self._cache.get_or_create(f"get-{key}", inner)
+        return self._cache_get_or_create(f"get-{key}", inner)
 
     @abc.abstractmethod
     def _find(self) -> DiscoveredSource:

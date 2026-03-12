@@ -80,6 +80,65 @@ class TestJavaFinder(base.TestCase):
         self.assertIsInstance(disc_source, java.JavaDiscoveredSource)
         self.assertEqual([url], disc_source.urls)
 
+    def test_get_release_history(self):
+        finder = self.make_finder(name=self.factory.make_string())
+        data = {
+            'response': {
+                'docs': [
+                    {'v': '2.0.0', 'timestamp': 2000},
+                    {'v': '1.0.0', 'timestamp': 1000},
+                ]
+            }
+        }
+        self.patch_get_with_response(requests.codes.ok, json=data)
+
+        history = finder.get_release_history()
+        self.assertEqual(
+            ['1.0.0', '2.0.0'], [item['version'] for item in history]
+        )
+
+    def test_get_release_history_sorts_none_timestamp_as_oldest(self):
+        finder = self.make_finder(name=self.factory.make_string())
+        data = {
+            'response': {
+                'docs': [
+                    {'v': '4.0.2'},
+                    {'v': '5.1.0.RELEASE', 'timestamp': 1514764800000},
+                ]
+            }
+        }
+        self.patch_get_with_response(requests.codes.ok, json=data)
+
+        history = finder.get_release_history()
+        self.assertEqual(
+            ['4.0.2', '5.1.0.RELEASE'],
+            [item['version'] for item in history],
+        )
+
+    def test_get_release_history_raises_when_request_fails(self):
+        finder = self.make_finder(name=self.factory.make_string())
+        self.patch_get_with_response(requests.codes.bad_request)
+        self.assertRaises(
+            exceptions.SourceNotFound,
+            finder.get_release_history,
+        )
+
+    def test_get_release_history_raises_when_docs_filtered(self):
+        finder = self.make_finder(name=self.factory.make_string())
+        data = {
+            'response': {
+                'docs': [
+                    {'v': ''},
+                    {'v': ''},
+                ]
+            }
+        }
+        self.patch_get_with_response(requests.codes.ok, json=data)
+        self.assertRaises(
+            exceptions.SourceNotFound,
+            finder.get_release_history,
+        )
+
 
 class TestNPMDiscoveredSource(base.TestCase):
     def make_discovered_source(self, url=None):

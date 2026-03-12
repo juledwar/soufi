@@ -107,6 +107,43 @@ class TestPythonFinder(base.TestCase):
         self.assertIsInstance(disc_source, python.PythonDiscoveredSource)
         self.assertEqual([url], disc_source.urls)
 
+    def test_get_release_history(self):
+        finder = self.make_finder(name=self.factory.make_string())
+        if self.index == 'devpi':
+            finder.index = 'https://pypi.org/pypi/'
+        data = {
+            'releases': {
+                '2.0.0': [{'upload_time_iso_8601': '2025-01-02T00:00:00Z'}],
+                '1.0.0': [{'upload_time_iso_8601': '2024-01-02T00:00:00Z'}],
+            }
+        }
+        self.patch_get_with_response(requests.codes.ok, json=data)
+
+        history = finder.get_release_history()
+        self.assertEqual(
+            ['1.0.0', '2.0.0'], [item['version'] for item in history]
+        )
+
+    def test_get_release_history_raises_when_request_fails(self):
+        finder = self.make_finder(name=self.factory.make_string())
+        if self.index == 'devpi':
+            finder.index = 'https://pypi.org/pypi/'
+        self.patch_get_with_response(requests.codes.bad_request)
+        self.assertRaises(
+            exceptions.SourceNotFound,
+            finder.get_release_history,
+        )
+
+    def test_get_release_history_raises_when_empty(self):
+        finder = self.make_finder(name=self.factory.make_string())
+        if self.index == 'devpi':
+            finder.index = 'https://pypi.org/pypi/'
+        self.patch_get_with_response(requests.codes.ok, json={'releases': {}})
+        self.assertRaises(
+            exceptions.SourceNotFound,
+            finder.get_release_history,
+        )
+
 
 class TestPythonDiscoveredSource(base.TestCase):
     def make_discovered_source(self, url=None):

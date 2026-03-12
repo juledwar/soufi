@@ -5,6 +5,7 @@
 from soufi import exceptions, finder
 
 GEM_DOWNLOADS = 'https://rubygems.org/downloads/'
+GEM_VERSIONS_URL = 'https://rubygems.org/api/v1/versions/'
 
 
 class GemFinder(finder.SourceFinder):
@@ -18,6 +19,35 @@ class GemFinder(finder.SourceFinder):
     def _find(self):
         source_url = self.get_source_url()
         return GemDiscoveredSource([source_url], timeout=self.timeout)
+
+    def _get_release_history(self):
+        url = f'{GEM_VERSIONS_URL}{self.name}.json'
+        try:
+            data = self.get_url(url).json()
+        except exceptions.DownloadError:
+            raise exceptions.SourceNotFound
+
+        history = []
+        for item in data:
+            version = item.get('number')
+            if not version:
+                continue
+            history.append(
+                {
+                    'version': version,
+                    'published_at': item.get('created_at'),
+                }
+            )
+        if history == []:
+            raise exceptions.SourceNotFound
+
+        history.sort(
+            key=lambda h: (
+                h['published_at'] is None,
+                h['published_at'] or "",
+            )
+        )
+        return history
 
     def get_source_url(self):
         url = f"{GEM_DOWNLOADS}{self.name}-{self.version}.gem"

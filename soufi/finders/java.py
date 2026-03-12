@@ -20,6 +20,49 @@ class JavaFinder(finder.SourceFinder):
         source_url = self.get_source_url()
         return JavaDiscoveredSource([source_url], timeout=self.timeout)
 
+    def _get_release_history(self):
+        params = dict(
+            q=f'a:{self.name} l:sources',
+            rows=200,
+            core='gav',
+            wt='json',
+            sort='timestamp asc',
+        )
+        try:
+            data = self.get_url(MAVEN_SEARCH_URL, params=params).json()
+        except exceptions.DownloadError:
+            raise exceptions.SourceNotFound
+
+        docs = data.get('response', {}).get('docs', [])
+        history = []
+        seen = set()
+        for doc in docs:
+            version = doc.get('v')
+            if not version or version in seen:
+                continue
+            seen.add(version)
+            timestamp = doc.get('timestamp')
+            if timestamp is not None:
+                # Search returns timestamp in milliseconds since epoch.
+                timestamp = f"{int(timestamp)}"
+            history.append(
+                {
+                    'version': version,
+                    'published_at': timestamp,
+                }
+            )
+
+        if history == []:
+            raise exceptions.SourceNotFound
+
+        history.sort(
+            key=lambda h: (
+                h['published_at'] is not None,
+                h['published_at'] or "",
+            )
+        )
+        return history
+
     def get_source_url(self):
         """Construct a URL from the JSON response for the search."""
         params = dict(q=f'a:{self.name} v:{self.version} l:sources', rows=1)
