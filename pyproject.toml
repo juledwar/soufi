@@ -55,7 +55,6 @@ test = [
     "testscenarios",
     "testresources",
     "testtools",
-    "twine",
 ]
 bootstrap = [
     "pip",
@@ -128,8 +127,8 @@ scripts.ci = [
 scripts.cover = [
     "export PYTHON='coverage run --source soufi --parallel-mode'; stestr run",
 ]
-scripts.pypi = ["python -m twine upload {args}"]
-scripts.testpypi = ["python -m twine upload --repository testpypi {args}"]
+scripts.pypi = ["python -c \"import configparser; c=configparser.ConfigParser(); c.read('$HOME/.pypirc'); import subprocess; subprocess.run(['uv', 'publish', '--token', c['pypi']['password']] + '{args}'.split())\""]
+scripts.testpypi = ["python -c \"import configparser; c=configparser.ConfigParser(); c.read('$HOME/.pypirc'); import subprocess; subprocess.run(['uv', 'publish', '--publish-url', 'https://test.pypi.org/legacy/', '--token', c['testpypi']['password']] + '{args}'.split())\""]
 
 scripts.functional = [
     "stestr --test-path ./soufi/functional run {args}",
