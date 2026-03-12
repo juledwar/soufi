@@ -26,6 +26,9 @@ class TestSourceFinderBase(base.TestCase):
         def _find(self):
             pass
 
+        def _get_release_history(self):
+            return []
+
     def test_stores_init_params(self):
         name = self.factory.make_string()
         version = self.factory.make_string()
@@ -88,6 +91,58 @@ class TestSourceFinderBase(base.TestCase):
             self.assertEqual(
                 "All of name, version and s_type must have a value", str(e)
             )
+
+    def test_get_release_history_overrides_constructor_values(self):
+        name = self.factory.random_choice([None, self.factory.make_string()])
+        s_type = self.factory.random_choice(
+            [None, self.factory.pick_enum(SourceType)]
+        )
+        name2 = self.factory.make_string()
+        s_type2 = self.factory.pick_enum(SourceType)
+        sf = self.TestFinder(name, version=None, s_type=s_type)
+        sf.get_release_history(name2, s_type2)
+
+        self.expectThat(sf.name, Equals(name2))
+        self.expectThat(sf.s_type, Equals(s_type2))
+
+    def test_error_if_missing_release_history_value(self):
+        for values in [
+            (None, self.factory.make_string()),
+            (self.factory.make_string(), None),
+        ]:
+            sf = self.TestFinder(name=values[0], s_type=values[1])
+            e = self.assertRaises(ValueError, sf.get_release_history)
+            self.assertEqual(
+                "Both of name and s_type must have a value", str(e)
+            )
+
+    def test_get_release_history_base_method_raises(self):
+        sf = self.TestFinder(
+            name=self.factory.make_string(),
+            version=self.factory.make_string(),
+            s_type=self.factory.pick_enum(SourceType),
+        )
+        self.assertRaises(
+            NotImplementedError,
+            SourceFinder._get_release_history,
+            sf,
+        )
+
+    def test_cache_get_or_create_uses_configured_ttl(self):
+        sf = self.TestFinder(
+            name=self.factory.make_string(),
+            version=self.factory.make_string(),
+            s_type=self.factory.pick_enum(SourceType),
+            cache_ttl=99,
+        )
+        creator = self.patch(sf, "_find")
+        cache_get_or_create = self.patch(sf._cache, "get_or_create")
+        sf._cache_get_or_create("example-key", creator)
+        cache_get_or_create.assert_called_once_with(
+            "example-key",
+            creator,
+            expiration_time=99,
+        )
 
 
 class TestDiscoveredSourceBase(base.TestCase):

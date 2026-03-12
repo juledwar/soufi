@@ -47,6 +47,7 @@ test = [
     "build",
     "coverage[toml]",
     "fixtures",
+    "pylru>=1.2.0",
     "ruff",
     "ipython",
     "pdbpp",
@@ -92,7 +93,7 @@ exclude = []
 
 [tool.hatch.envs.default]
 path = ".hatch"
-features = ["test"]
+features = ["test", "cli"]
 
 # Bootstrap or upgrade an existing virtualenv:
 scripts.install = [

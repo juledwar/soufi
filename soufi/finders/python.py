@@ -28,6 +28,41 @@ class PythonFinder(finder.SourceFinder):
         source_url = self.get_source_url()
         return PythonDiscoveredSource([source_url], timeout=self.timeout)
 
+    def _get_release_history(self):
+        url = f"{self.index}{self.name}/json"
+        try:
+            data = self.get_url(url).json()
+        except exceptions.DownloadError:
+            raise exceptions.SourceNotFound
+
+        history = []
+        for version, release_data in data.get('releases', {}).items():
+            published_at = None
+            for item in release_data:
+                timestamp = item.get('upload_time_iso_8601') or item.get(
+                    'upload_time'
+                )
+                if timestamp:
+                    published_at = timestamp
+                    break
+            history.append(
+                {
+                    'version': version,
+                    'published_at': published_at,
+                }
+            )
+
+        if history == []:
+            raise exceptions.SourceNotFound
+
+        history.sort(
+            key=lambda h: (
+                h['published_at'] is None,
+                h['published_at'] or "",
+            )
+        )
+        return history
+
     def get_source_url(self):
         """Get the URL from the JSON info for the Python package."""
         try:

@@ -10,6 +10,7 @@ compile () {
   shift
 
   uv pip compile \
+    --python 3.10 \
     --universal \
     --no-strip-extras \
     --no-header \

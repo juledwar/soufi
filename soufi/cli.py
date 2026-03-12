@@ -4,12 +4,13 @@
 """A simple testing CLI to find and download source."""
 
 import functools
+import json
 import os
 import shutil
 import sys
 import warnings
 
-from soufi import exceptions, finder
+from soufi import exceptions, finder, history_cli
 
 try:
     import click
@@ -236,6 +237,20 @@ class Finder:
         return cls.find(composer_finder)
 
 
+class DefaultFindGroup(click.Group):
+    """A command group that defaults to the legacy implicit `find` mode."""
+
+    def resolve_command(self, ctx, args):
+        if (
+            args
+            and args[0] not in self.commands
+            and not args[0].startswith("-")
+        ):
+            ctx.meta["implicit_find_mode"] = True
+            args = ["find", *args]
+        return super().resolve_command(ctx, args)
+
+
 def make_archive_from_discovery_source(disc_src, fname):
     try:
         with disc_src.make_archive() as in_fd, open(fname, "wb") as out_fd:
@@ -246,7 +261,12 @@ def make_archive_from_discovery_source(disc_src, fname):
         click.get_current_context().exit(255)
 
 
-@click.command()
+@click.group(cls=DefaultFindGroup)
+def main():
+    """Find source files and query upstream release history."""
+
+
+@main.command("find")
 @click.argument("distro")
 @click.argument("name")
 @click.argument("version")
@@ -315,7 +335,7 @@ def make_archive_from_discovery_source(disc_src, fname):
     help="Timeout when making requests.  Must be greater than zero.",
     show_default=True,
 )
-def main(
+def find(
     distro,
     name,
     version,
@@ -344,6 +364,12 @@ def main(
     'phpcomposer', and 'npm', one of which must be specified as the DISTRO
     argument.
     """
+    if click.get_current_context().meta.get("implicit_find_mode", False):
+        click.echo(
+            "WARNING: `soufi ...` without `find` is deprecated and will be "
+            "removed in a future release; use `soufi find ...` instead.",
+            err=True,
+        )
     try:
         func = functools.partial(
             getattr(Finder, distro), name, version, timeout=timeout
@@ -381,6 +407,86 @@ def main(
             name = name.replace(os.sep, ".")
             fname = f"{name}-{version}.{distro}{disc_source.archive_extension}"
         make_archive_from_discovery_source(disc_source, fname)
+
+
+@main.command("history")
+@click.argument("distro", type=click.Choice(sorted(history_cli.HISTORY_TYPES)))
+@click.argument("name")
+@click.option(
+    "--cache-path",
+    default=history_cli.DEFAULT_CACHE_PATH,
+    show_default=True,
+    help="On-disk cache path for release history",
+)
+@click.option(
+    "--cache-ttl",
+    default=history_cli.DEFAULT_CACHE_TTL,
+    type=click.IntRange(0),
+    show_default=True,
+    help="Cache TTL in seconds",
+)
+@click.option(
+    "--timeout",
+    default=30,
+    type=click.IntRange(1),
+    show_default=True,
+    help="HTTP request timeout in seconds",
+)
+@click.option(
+    "--pyindex",
+    default="https://pypi.org/pypi/",
+    show_default=True,
+    help="Python package index URL",
+)
+@click.option(
+    "--goproxy",
+    default="https://proxy.golang.org/",
+    show_default=True,
+    help="Go proxy URL",
+)
+@click.option(
+    "--json",
+    "as_json",
+    is_flag=True,
+    default=False,
+    help="Render output as JSON",
+)
+def history(
+    distro,
+    name,
+    cache_path,
+    cache_ttl,
+    timeout,
+    pyindex,
+    goproxy,
+    as_json,
+):
+    """Return release history for a package ecosystem/type + name."""
+    try:
+        data = history_cli.get_release_history(
+            distro=distro,
+            name=name,
+            cache_path=cache_path,
+            cache_ttl=cache_ttl,
+            timeout=timeout,
+            pyindex=pyindex,
+            goproxy=goproxy,
+        )
+    except (
+        ValueError,
+        exceptions.SourceNotFound,
+        exceptions.DownloadError,
+    ) as e:
+        click.echo(str(e), err=True)
+        click.get_current_context().exit(255)
+
+    if as_json:
+        click.echo(json.dumps(data, indent=2, sort_keys=True))
+        return
+    for item in data:
+        version = item.get("version", "")
+        published_at = item.get("published_at") or "-"
+        click.echo(f"{version}\t{published_at}")
 
 
 if __name__ == "__main__":
