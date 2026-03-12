@@ -139,6 +139,24 @@ class TestJavaFinder(base.TestCase):
             finder.get_release_history,
         )
 
+    def test_get_release_history_uses_group_id(self):
+        name = self.factory.make_string()
+        group_id = self.factory.make_string()
+        finder = java.JavaFinder(
+            name,
+            self.factory.make_string(),
+            SourceType.java,
+            group_id=group_id,
+        )
+        data = {'response': {'docs': [{'v': '1.0.0', 'timestamp': 1000}]}}
+        get = self.patch_get_with_response(requests.codes.ok, json=data)
+
+        finder.get_release_history()
+        call_args = get.call_args
+        query = call_args.kwargs['params']['q']
+        self.assertIn(f'g:{group_id}', query)
+        self.assertIn(f'a:{name}', query)
+
 
 class TestNPMDiscoveredSource(base.TestCase):
     def make_discovered_source(self, url=None):

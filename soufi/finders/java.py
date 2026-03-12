@@ -12,17 +12,31 @@ class JavaFinder(finder.SourceFinder):
     """Find Java source JARs.
 
     Uses the SOLR search at https://search.maven.org/
+
+    :param group_id: Optional Maven groupId to narrow the search. Without
+        this, the search may return versions from different artifacts that
+        share the same artifactId.
     """
 
     distro = finder.SourceType.java.value
+
+    def __init__(self, *args, group_id=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.group_id = group_id
 
     def _find(self):
         source_url = self.get_source_url()
         return JavaDiscoveredSource([source_url], timeout=self.timeout)
 
     def _get_release_history(self):
+        # Build query - if group_id is provided, filter by it to avoid
+        # matching different artifacts with the same name.
+        if self.group_id:
+            query = f'g:{self.group_id} AND a:{self.name} l:sources'
+        else:
+            query = f'a:{self.name} l:sources'
         params = dict(
-            q=f'a:{self.name} l:sources',
+            q=query,
             rows=200,
             core='gav',
             wt='json',
