@@ -1,7 +1,5 @@
 #!/bin/sh
 
-set -x
-
 REQ_DIR=requirements
 
 compile () {
@@ -11,6 +9,7 @@ compile () {
 
   uv pip compile \
     --python 3.10 \
+    --quiet \
     --universal \
     --no-strip-extras \
     --no-header \
