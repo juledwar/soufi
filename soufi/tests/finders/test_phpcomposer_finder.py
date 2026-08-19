@@ -55,7 +55,8 @@ class TestPHPPECLFinder(base.TestCase):
 
     def test_get_source_url_source_not_found(self):
         finder = self.make_finder()
-        self.patch_get_with_response(requests.codes.not_found)
+        get_url = self.patch(finder, 'get_url')
+        get_url.side_effect = exceptions.SourceNotFound("boom")
         self.assertRaises(exceptions.SourceNotFound, finder.get_source_url)
 
     def test_get_source_version_not_found(self):
