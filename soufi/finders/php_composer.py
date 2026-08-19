@@ -2,8 +2,6 @@
 # All rights reserved.
 
 
-import requests
-
 from soufi import exceptions, finder
 
 DEFAULT_INDEX = "https://repo.packagist.org/"
@@ -45,9 +43,7 @@ class PHPComposer(finder.SourceFinder):
             to use.
         """
         url = f"{DEFAULT_INDEX}p2/{self.name}.json"
-        resp = requests.get(url, timeout=self.timeout)
-        if resp.status_code != requests.codes.ok:
-            raise exceptions.SourceNotFound
+        resp = self.get_url(url)
 
         try:
             versions = resp.json()["packages"][self.name]
