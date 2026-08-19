@@ -13,6 +13,7 @@ import testtools
 from testtools.matchers import DirExists, Equals, FileContains, Not
 from testtools.matchers._basic import SameMembers
 
+import soufi.finder as base_finder
 from soufi import exceptions
 from soufi.finder import DiscoveredSource, SourceFinder, SourceType
 from soufi.testing import base
@@ -266,3 +267,68 @@ class TestDiscoveredSourceBase(base.TestCase):
 
         # Test that the copied file contains the fake downloaded content.
         self.assertThat(tar_file_name, FileContains(content.decode()))
+
+
+# A simple subprocess function that throws a test exception.  Used by
+# TestDoTask.test_do_task_reraises_exceptions
+def kaboom(queue, data):
+    try:
+        raise RuntimeError(data)
+    except Exception as e:
+        queue.put((e,))
+    # This should never get called, but just in case...
+    queue.put([])
+
+
+class TestDoTask(base.TestCase):
+    def test_do_task(self):
+        # Mock up a process that does not exit upon return
+        data = self.factory.make_string('response')
+        queue = self.patch(base_finder, 'Queue')
+        queue.return_value.get.return_value = data
+        process = self.patch(base_finder, 'Process')
+        process.return_value.is_alive.return_value = True
+
+        # Ensure that the process gets shot in the head
+        response = base_finder.do_task('a', 'b', 'c')
+        self.assertEqual(data, response)
+        process.return_value.terminate.assert_called_once_with()
+
+    def test_do_task_empty_response(self):
+        # Mock up a process that yields an "empty-but-successful" response
+        queue = self.patch(base_finder, 'Queue')
+        queue.return_value.get.return_value = []
+        process = self.patch(base_finder, 'Process')
+        process.return_value.is_alive.return_value = False
+
+        # Ensure that the process gets shot in the head
+        response = base_finder.do_task('d', 'e', 'f')
+        self.assertEqual([], response)
+        process.return_value.terminate.assert_not_called()
+
+    def test_do_task_reraises_exceptions(self):
+        # Actually run a job via do_task and ensure that the resulting
+        # exception is intact
+        data = self.factory.make_string('response')
+        err = self.assertRaises(
+            RuntimeError, base_finder.do_task, kaboom, data
+        )
+        self.assertEqual(data, str(err))
+
+    def test_do_task_handles_spawn_errors_on_silly_platforms(self):
+        # This simulates calling `process.start()` from the global scope on
+        # platforms that do not support such things.  The default traceback
+        # is not intrinsically helpful, so test that we kick back a more
+        # useful error message.  See issue #31.
+        process = self.patch(base_finder, 'Process')
+        process.return_value.start.side_effect = RuntimeError(
+            'Simulating a platform that is not using fork to start children'
+        )
+        err = self.assertRaises(SystemExit, base_finder.do_task, None)
+        self.assertIn('FATAL: ', str(err))
+
+    def test_do_task_leaves_other_spawn_errors_alone(self):
+        # As per the above, other RuntimeError exceptions should pass through
+        process = self.patch(base_finder, 'Process')
+        process.return_value.start.side_effect = RuntimeError
+        self.assertRaises(RuntimeError, base_finder.do_task, None)
