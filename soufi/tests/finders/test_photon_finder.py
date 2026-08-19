@@ -142,7 +142,7 @@ class TestPhotonFinder(BasePhotonTest):
             photon.PHOTON_PACKAGES + '/' + top_repos[1] + repos[2],
             photon.PHOTON_PACKAGES + '/' + top_repos[0] + repos[3],
         ]
-        result = finder.get_binary_repos()
+        result = list(finder.get_binary_repos())
         self.assertEqual(expected, result)
         # fmt: off
         get.assert_has_calls(
@@ -172,7 +172,7 @@ class TestPhotonFinder(BasePhotonTest):
             self.make_response(data, requests.codes.ok),
         )
         # We should only have one source repo directory available
-        result = finder.get_binary_repos()
+        result = list(finder.get_binary_repos())
         expected = [f"{photon.PHOTON_PACKAGES}/6.0/1_base_x86_64"]
         self.assertEqual(expected, result)
         get.assert_has_calls(
@@ -197,7 +197,7 @@ class TestPhotonFinder(BasePhotonTest):
         # The first repo candidate contains no repo data
         self.patch(finder, 'test_url').side_effect = (False, True)
         # We should only have one source repo directory available
-        result = finder.get_binary_repos()
+        result = list(finder.get_binary_repos())
         expected = [f"{photon.PHOTON_PACKAGES}/6.0/1_base_x86_64"]
         self.assertEqual(expected, result)
         get.assert_has_calls(
