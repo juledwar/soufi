@@ -7,9 +7,12 @@ import enum
 import importlib
 import pathlib
 import pkgutil
+import sys
 import tarfile
 import tempfile
+import textwrap
 from inspect import isclass
+from multiprocessing import Process, Queue
 from typing import (
     Any,
     BinaryIO,
@@ -366,3 +369,37 @@ class FinderFactory:
 
 
 factory = FinderFactory()
+
+
+def do_task(target, *args):
+    """Run the target callable in a subprocess and return its response."""
+    queue = Queue()
+    process = Process(target=target, args=(queue,) + args)
+    try:
+        process.start()
+    except RuntimeError as e:
+        if 'not using fork' in str(e):
+            sys.exit(
+                textwrap.dedent(
+                    """
+                FATAL: Running this finder directly from the global scope is
+                not supported on this platform.  To use this finder, call it
+                instead from the main module, e.g.:
+
+                   if __name__ == '__main__':
+                       soufi.finder.factory(*args, **kwargs).find()
+
+                Aborting."""
+                )
+            )
+        raise
+    # We don't want to wait *forever*, but jobs can take several minutes to
+    # complete, so wait a relatively long time
+    response = queue.get(timeout=600)
+    if process.is_alive():
+        process.terminate()
+    # re-raise exceptions thrown in child processes; this should keep them
+    # from getting cached
+    if response and isinstance(response[0], Exception):
+        raise response[0]
+    return response
