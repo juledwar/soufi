@@ -2,6 +2,8 @@
 # All rights reserved.
 
 
+import pickle
+
 import defusedxml.lxml
 import requests
 
@@ -29,14 +31,15 @@ class PHPPECL(finder.SourceFinder):
         query, and returning a URL contained in the returned XML data.
         """
         url = f"{DEFAULT_INDEX}rest/r/{self.name}/{self.version}.xml"
-        # The returned XML document contains a <g> element with the URL.
         try:
-            with requests.get(url, stream=True, timeout=30) as r:
-                r.raw.decode_content = True
-                xml = defusedxml.lxml.parse(r.raw)
-            return xml.find('.//{*}g').text
+            (source_url,) = self._cache.get_or_create(
+                f"pecl-{url}",
+                finder.do_task,
+                creator_args=([get_pecl_url, url], {}),
+            )
         except Exception:
             raise exceptions.SourceNotFound
+        return source_url
 
 
 class PHPPECLDiscoveredSource(finder.DiscoveredSource):
@@ -52,3 +55,25 @@ class PHPPECLDiscoveredSource(finder.DiscoveredSource):
 
     def __repr__(self):
         return self.urls[0]
+
+
+# See: soufi.finders.yum.load_repomd, soufi.finders.yum.get_repomd
+def get_pecl_url(queue, url):
+    # The returned XML document contains a <g> element with the URL.
+    timeout = PHPPECL.timeout
+    try:
+        with requests.get(url, stream=True, timeout=timeout) as r:
+            r.raw.decode_content = True
+            xml = defusedxml.lxml.parse(r.raw)
+        source_url = xml.find('.//{*}g').text
+    except Exception as e:
+        try:
+            pickle.dumps(e)
+        except Exception:
+            e = Exception(
+                f"Could not serialize {e.__class__.__name__}, "
+                f"re-raising as plain Exception with msg: {str(e)}"
+            )
+        queue.put((e,), timeout=timeout)
+        return
+    queue.put((source_url,))
