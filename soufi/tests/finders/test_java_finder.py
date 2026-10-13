@@ -1,6 +1,8 @@
 # Copyright (c) 2021-2023 Cisco Systems, Inc. and its affiliates
 # All rights reserved.
 
+from unittest import mock
+
 import requests
 import testtools
 
@@ -22,7 +24,9 @@ class TestJavaFinder(base.TestCase):
         finder = self.make_finder()
         group = self.factory.make_string()
         url = self.factory.make_url()
-        data = dict(response=dict(docs=[dict(g=group)]))
+        data = dict(response=dict(docs=[dict(
+            g=group, a=finder.name, v=finder.version
+        )]))
 
         get = self.patch_get_with_response(requests.codes.ok, json=data)
         head = self.patch_head_with_response(requests.codes.ok)
@@ -30,7 +34,10 @@ class TestJavaFinder(base.TestCase):
         found_url = finder.get_source_url()
         self.assertEqual(found_url, url)
         expected = dict(
-            q=f'a:{finder.name} v:{finder.version} l:sources', rows=1
+            q=f'a:{finder.name} AND v:{finder.version} AND l:sources',
+            rows=1,
+            core='gav',
+            wt='json',
         )
         get.assert_called_once_with(
             java.MAVEN_SEARCH_URL, params=expected, timeout=finder.timeout
@@ -52,22 +59,81 @@ class TestJavaFinder(base.TestCase):
         with testtools.ExpectedException(exceptions.SourceNotFound):
             finder.get_source_url()
 
+    def test_falls_back_to_github_tag_from_exact_artifact_pom(self):
+        finder = self.make_finder(name='example-library', version='2.4.1')
+        response = mock.Mock()
+        response.json.return_value = {'response': {'docs': []}}
+        artifact_response = mock.Mock()
+        artifact_response.json.return_value = {
+            'response': {'docs': [{
+                'g': 'org.example', 'a': finder.name, 'v': finder.version
+            }]}
+        }
+        get_url = self.patch(finder, 'get_url')
+        get_url.side_effect = [response, artifact_response, mock.Mock(
+            content=b'<project><scm><connection>'
+            b'scm:git:https://github.com/example/library.git'
+            b'</connection><tag>v2.4.1</tag></scm></project>'
+        )]
+        found = mock.Mock(url=(
+            'https://codeload.github.com/example/library/'
+            'tar.gz/refs/tags/v2.4.1'
+        ))
+        test_url = self.patch(finder, 'test_url')
+        test_url.side_effect = [False, found]
+
+        source_url = finder.get_source_url()
+
+        self.assertEqual(found.url, source_url)
+        self.assertEqual('maven-pom-github-tag-archive', finder.discovery_path)
+        self.assertEqual(2, test_url.call_count)
+        self.assertIn('/refs/tags/v2.4.1', test_url.call_args.args[0])
+
+    def test_rejects_mismatched_maven_search_result(self):
+        finder = self.make_finder(name='wanted', version='1.0')
+        response = mock.Mock()
+        response.json.return_value = {'response': {'docs': [{
+            'g': 'org.example', 'a': 'other', 'v': '1.0'
+        }]}}
+        artifact_response = mock.Mock()
+        artifact_response.json.return_value = {'response': {'docs': []}}
+        self.patch(finder, 'get_url').side_effect = [
+            response,
+            artifact_response,
+        ]
+        test_url = self.patch(finder, 'test_url')
+
+        self.assertRaises(exceptions.SourceNotFound, finder.get_source_url)
+        test_url.assert_not_called()
+
+    def test_github_repository_requires_github_host_and_repository_path(self):
+        self.assertIsNone(java.JavaFinder._github_repository(
+            'https://example.com/owner/repo'
+        ))
+        self.assertIsNone(java.JavaFinder._github_repository(
+            'https://github.com/owner'
+        ))
+
     def test_get_source_info_raises_when_head_response_fails(self):
         group = self.factory.make_string()
-        data = dict(response=dict(docs=[dict(g=group)]))
+        finder = self.make_finder()
+        data = dict(response=dict(docs=[dict(
+            g=group, a=finder.name, v=finder.version
+        )]))
         self.patch_get_with_response(requests.codes.ok, json=data)
         self.patch_head_with_response(requests.codes.not_found)
-        finder = self.make_finder()
         with testtools.ExpectedException(exceptions.SourceNotFound):
             finder.get_source_url()
 
     def test_get_source_info_raises_when_head_response_times_out(self):
         group = self.factory.make_string()
-        data = dict(response=dict(docs=[dict(g=group)]))
+        finder = self.make_finder()
+        data = dict(response=dict(docs=[dict(
+            g=group, a=finder.name, v=finder.version
+        )]))
         self.patch_get_with_response(requests.codes.ok, json=data)
         head = self.patch(requests, 'head')
         head.side_effect = requests.exceptions.Timeout
-        finder = self.make_finder()
         with testtools.ExpectedException(exceptions.SourceNotFound):
             finder.get_source_url()
 
