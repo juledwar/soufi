@@ -18,7 +18,7 @@ class TestCLI(base.TestCase):
 
     def test_main_uses_legacy_implicit_find_mode(self):
         python = self.patch(cli.Finder, "python")
-        python.return_value = object()
+        python.return_value = mock.Mock(discovery_path=None)
 
         result = self.runner.invoke(cli.main, ["python", "foo", "1.2.3"])
 
@@ -30,7 +30,7 @@ class TestCLI(base.TestCase):
 
     def test_find_command_still_works_without_deprecation_warning(self):
         python = self.patch(cli.Finder, "python")
-        python.return_value = object()
+        python.return_value = mock.Mock(discovery_path=None)
 
         result = self.runner.invoke(
             cli.main, ["find", "python", "foo", "1.2.3"]
@@ -57,11 +57,17 @@ class TestCLI(base.TestCase):
         source_search = mock.Mock(status_code=requests.codes.ok)
         source_search.json.return_value = {"response": {"docs": []}}
         artifact_search = mock.Mock(status_code=requests.codes.ok)
-        artifact_search.json.return_value = {"response": {"docs": [{
-                "g": "org.example",
-                "a": "example-library",
-                "v": "2.4.1",
-        }]}}
+        artifact_search.json.return_value = {
+            "response": {
+                "docs": [
+                    {
+                        "g": "org.example",
+                        "a": "example-library",
+                        "v": "2.4.1",
+                    }
+                ]
+            }
+        }
         pom = mock.Mock(
             status_code=requests.codes.ok,
             content=(
@@ -90,8 +96,8 @@ class TestCLI(base.TestCase):
         )
 
         self.assertEqual(0, result.exit_code, result.output)
-        self.assertThat(result.output, Contains(source_url))
+        self.assertEqual(source_url, result.stdout.strip())
         self.assertThat(
-            result.output,
+            result.stderr,
             Contains("Source discovery path: maven-pom-github-tag-archive"),
         )

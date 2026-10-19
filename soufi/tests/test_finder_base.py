@@ -160,6 +160,15 @@ class TestDiscoveredSourceBase(base.TestCase):
                 fake_file_fd.write(self.fake_content)
             tar.add(fake_file, arcname=self.fake_filename)
 
+    def test_discovery_path_defaults_to_none_and_can_be_set(self):
+        source = self.TestDiscoveredSource(urls=[])
+        described_source = self.TestDiscoveredSource(
+            urls=[], discovery_path='example-finder'
+        )
+
+        self.assertIsNone(source.discovery_path)
+        self.assertEqual('example-finder', described_source.discovery_path)
+
     def test_make_archive_yields_fileobj_to_tar(self):
         filename = self.factory.make_string('filename')
         content = self.factory.make_bytes('content')

@@ -29,9 +29,10 @@ class Finder:
     def find(cls, finder):
         source = finder.find()
         click.echo(source)
-        discovery_path = getattr(source, "discovery_path", None)
-        if discovery_path:
-            click.echo(f"Source discovery path: {discovery_path}")
+        if source.discovery_path:
+            click.echo(
+                f"Source discovery path: {source.discovery_path}", err=True
+            )
         return source
 
     @classmethod

@@ -64,9 +64,17 @@ class DiscoveredSource(metaclass=abc.ABCMeta):
     # necessary if make_archive is also overridden.
     archive_extension = '.tar.xz'
 
-    def __init__(self, urls: Iterable[str], timeout: int = DEFAULT_TIMEOUT):
+    def __init__(
+        self,
+        urls: Iterable[str],
+        timeout: int = DEFAULT_TIMEOUT,
+        discovery_path: str = None,
+    ):
         self._urls = urls
         self.timeout = timeout
+        # Finders may describe how a source was located for callers that need
+        # to report or inspect the discovery method.
+        self.discovery_path = discovery_path
 
     @property
     def urls(self):
