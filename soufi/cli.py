@@ -29,6 +29,10 @@ class Finder:
     def find(cls, finder):
         source = finder.find()
         click.echo(source)
+        if source.discovery_path:
+            click.echo(
+                f"Source discovery path: {source.discovery_path}", err=True
+            )
         return source
 
     @classmethod
@@ -148,12 +152,13 @@ class Finder:
         return cls.find(go_finder)
 
     @classmethod
-    def java(cls, name, version, timeout=None):
+    def java(cls, name, version, timeout=None, group_id=None):
         java_finder = finder.factory(
             "java",
             name=name,
             version=version,
             s_type=finder.SourceType.java,
+            group_id=group_id,
             timeout=timeout,
         )
         return cls.find(java_finder)
@@ -312,6 +317,11 @@ def main():
     show_default=True,
 )
 @click.option(
+    "--group-id",
+    default=None,
+    help="Maven groupId to disambiguate Java artifacts",
+)
+@click.option(
     "--output",
     "-o",
     help="Download the source archive and write to this file name",
@@ -343,6 +353,7 @@ def find(
     aports,
     repo,
     goproxy,
+    group_id,
     output,
     auto_output,
     source_repo,
@@ -395,6 +406,8 @@ def find(
             )
         elif distro == "go":
             disc_source = func(goproxy=goproxy)
+        elif distro == "java":
+            disc_source = func(group_id=group_id)
         else:
             disc_source = func()
     except exceptions.SourceNotFound:
